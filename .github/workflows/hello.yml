@@ -1,0 +1,19 @@
+name: Hello Self-Hosted
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  hello:
+    runs-on: self-hosted
+    steps:
+      - name: Print hello
+        run: |
+          echo "=== Hello from self-hosted runner ==="
+          echo "Host:    $(hostname)"
+          echo "User:    $(whoami)"
+          echo "PWD:     $(pwd)"
+          echo "Date:    $(date)"
+          echo "Python:  $(python3 --version)"
+          echo "Docker:  $(docker --version)"
