@@ -8,6 +8,9 @@ jobs:
   hello:
     runs-on: self-hosted
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Print hello
         run: |
           echo "=== Hello from self-hosted runner ==="
@@ -17,3 +20,6 @@ jobs:
           echo "Date:    $(date)"
           echo "Python:  $(python3 --version)"
           echo "Docker:  $(docker --version)"
+          echo ""
+          echo "=== Files in workspace (after checkout) ==="
+          ls -la
