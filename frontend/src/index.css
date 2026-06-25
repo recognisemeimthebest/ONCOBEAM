@@ -1,0 +1,187 @@
+@import 'tailwindcss';
+
+/* ──────────────────────────────────────────────────────────
+   의사랑EMR 풍 라이트 임상 워크스테이션 테마
+   고밀도 다중 패널 · 작은 폰트 · 파란 타이틀바 · 표 중심
+   ────────────────────────────────────────────────────────── */
+@theme {
+  /* Surface */
+  --color-bg: #e7ecf3;          /* 앱 배경 (푸른 회색) */
+  --color-panel: #ffffff;       /* 패널 흰 바탕 */
+  --color-panel-alt: #f4f7fb;   /* 지브라/보조 바탕 */
+
+  /* 타이틀바 / 네이비 환자열 */
+  --color-title: #3f6fb2;
+  --color-title-2: #34609e;
+  --color-navy: #313f54;
+  --color-navy-2: #3b4d66;
+  --color-navy-sel: #1f63b8;
+
+  /* 섹션 헤더(연파랑) */
+  --color-headbar: #d8e6f7;
+  --color-headbar-ink: #285a96;
+
+  /* 보더 */
+  --color-line: #cbd6e3;
+  --color-line-soft: #e2e8f1;
+
+  /* 텍스트 */
+  --color-ink: #1e2733;
+  --color-ink-soft: #5d6b7c;
+  --color-link: #1f63b8;
+  --color-accent: #2b6cb0;
+
+  /* Semantic */
+  --color-danger: #d62839;
+  --color-success: #1f9d55;
+  --color-warn: #d98300;
+
+  /* 뱃지 */
+  --color-badge: #e2edfb;
+  --color-badge-ink: #2b5a96;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Inter',
+    sans-serif;
+  font-size: 12px;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: #bcd6f5;
+}
+
+/* ── EMR 공통 부품 ───────────────────────────────────────── */
+
+/* 패널 */
+.emr-panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+}
+
+/* 섹션 헤더바 (연파랑, 굵은 작은 글씨) */
+.emr-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--color-headbar);
+  border-bottom: 1px solid var(--color-line);
+  color: var(--color-headbar-ink);
+  font-weight: 700;
+  font-size: 11.5px;
+}
+
+/* 표 */
+.emr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+.emr-table th {
+  background: #eef3fa;
+  color: var(--color-ink-soft);
+  font-weight: 600;
+  text-align: left;
+  padding: 3px 6px;
+  border: 1px solid var(--color-line-soft);
+  white-space: nowrap;
+}
+.emr-table td {
+  padding: 3px 6px;
+  border: 1px solid var(--color-line-soft);
+  color: var(--color-ink);
+}
+.emr-table tbody tr:nth-child(even) {
+  background: var(--color-panel-alt);
+}
+.emr-row-click {
+  cursor: pointer;
+}
+.emr-row-click:hover {
+  background: #eaf2fd !important;
+}
+
+/* 뱃지 */
+.emr-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: var(--color-badge);
+  color: var(--color-badge-ink);
+}
+
+/* 버튼 */
+.emr-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 3px;
+  background: linear-gradient(#ffffff, #eef2f7);
+  color: var(--color-ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.emr-btn:hover {
+  background: linear-gradient(#ffffff, #e3eaf3);
+}
+.emr-btn-primary {
+  border-color: var(--color-title-2);
+  background: linear-gradient(var(--color-title), var(--color-title-2));
+  color: #fff;
+}
+.emr-btn-primary:hover {
+  background: linear-gradient(#3a68a8, #2f5990);
+}
+
+/* 입력 */
+.emr-input {
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--color-line);
+  border-radius: 3px;
+  background: #fff;
+  color: var(--color-ink);
+  font-size: 11.5px;
+  outline: none;
+}
+.emr-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(43, 108, 176, 0.15);
+}
+
+/* 타이틀바 그라데이션 */
+.emr-titlebar {
+  background: linear-gradient(var(--color-title), var(--color-title-2));
+}

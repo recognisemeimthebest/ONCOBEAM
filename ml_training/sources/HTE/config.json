@@ -1,0 +1,65 @@
+{
+	"project": {
+		"name": "두경부암_인과추론",
+		"random_seed": 42
+	},
+	"paths": {
+		"data_file": "/home/ubuntu/output/radiomics/final_merged.csv",
+		"output_dir":"output2/"
+	},
+	"columns": {
+		"treatment": "treatmethod",
+		"outcome": "effect"
+	},
+	"features": {
+		"continuous": [
+			"age_at_tx",
+			"weight",
+			"totaldose",
+			"radiationcnt",
+			"radiationperdose",
+			"pre_original_glcm_InverseVariance",
+			"pre_original_ngtdm_Busyness",
+			"post_original_glrlm_HighGrayLevelRunEmphasis",
+			"post_original_glszm_HighGrayLevelZoneEmphasis"
+		],
+		"binary":[],
+		"categorical": [
+			"sex",
+			"imgT_stage",
+			"imgN_stage",
+			"imgM_stage",
+			"classification cancer",
+			"treatech"
+		]
+	},
+	"treatment": {
+		"keet_arms": [1,2,3,4],
+		"exclude_arms": ["5","6","7","8"],
+		"valid_pairs":[
+			["1","2"],
+			["3","4"],
+			["1","3"],
+			["2","4"]
+		],
+		"pair_labels": {
+			"1_vs_2": "방사선 vs 항암방사선 (항암제 추가 효과)",
+			"3_vs_4": "수술+방사선 vs 수술+항암방사선 (수술후 항암제 추가 효과)",
+			"1_vs_3": "방사선 vs 수술+방사선 (수술 추가 효과)",
+			"2_vs_4": "항암방사선 vs 수술+항암방사선 (항암 기반 수술 추가 효과)"
+		}
+	},
+	"missing_threshold":0.8,
+
+	"min_follow_up_years": 0.0,
+
+	"psm": {
+		"ps_low": 0.1,
+		"ps_high": 0.9,
+		"smd_threshold":0.1
+	},
+	"xlearner": {
+		"alpha": 0.05,
+		"n_bootstrap": 200
+	}
+}

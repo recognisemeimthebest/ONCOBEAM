@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.db
+.pytest_cache/
+
+# 환경변수 / 비밀 (DB자격·JWT secret)
+.env
+*.env
+
+# 학습 모델 / 산출물 (대용량·비공개)
+backend/ml_models/*.joblib
+model_service/models/*.pkl
+
+# 데이터 (환자 임상정보·라이선스 문서·대용량 영상 — 비공개)
+data/
+
+# Node / React
+node_modules/
+dist/
+frontend/dist/
+
+# 노트북 체크포인트
+.ipynb_checkpoints/
+
+# OS / 에디터 / 오피스 잠금
+.DS_Store
+.~lock.*#

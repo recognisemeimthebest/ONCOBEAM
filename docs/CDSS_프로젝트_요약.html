@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CDSS 프로젝트 작업 요약</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#ffffff; --ink:#1e293b; --muted:#64748b;
+    --brand:#0d9488; --brand2:#0f766e; --line:#e2e8f0;
+    --ok:#16a34a; --warn:#d97706; --bad:#dc2626; --info:#2563eb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",-apple-system,"Malgun Gothic",sans-serif;
+       color:var(--ink);background:#f1f5f9;line-height:1.65}
+  header{background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;padding:48px 24px}
+  header .wrap{max-width:960px;margin:0 auto}
+  header h1{margin:0 0 8px;font-size:30px}
+  header p{margin:0;opacity:.9}
+  .wrap{max-width:960px;margin:0 auto;padding:0 24px}
+  main{padding:32px 0 64px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:12px;
+          padding:24px 28px;margin:18px 0;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  h2{margin:0 0 4px;font-size:21px;color:var(--brand2);border-bottom:2px solid var(--line);
+     padding-bottom:10px;display:flex;align-items:center;gap:10px}
+  h2 .n{background:var(--brand);color:#fff;width:28px;height:28px;border-radius:50%;
+        display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex:0 0 auto}
+  h3{font-size:16px;margin:20px 0 8px;color:#334155}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#f8fafc;font-weight:600}
+  tr:nth-child(even) td{background:#fbfdfd}
+  code{background:#f1f5f9;padding:1px 6px;border-radius:5px;font-size:13px;
+       font-family:"Consolas",monospace;color:#0f766e}
+  pre{background:#0f172a;color:#e2e8f0;padding:14px 16px;border-radius:8px;overflow:auto;
+      font-size:13px;font-family:"Consolas",monospace}
+  pre .c{color:#64748b}
+  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
+  .b-ok{background:#dcfce7;color:#166534}
+  .b-warn{background:#fef3c7;color:#92400e}
+  .b-bad{background:#fee2e2;color:#991b1b}
+  .b-info{background:#dbeafe;color:#1e40af}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:14px 0}
+  .stat{background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:14px 16px}
+  .stat .v{font-size:26px;font-weight:700;color:var(--brand2)}
+  .stat .l{font-size:13px;color:var(--muted)}
+  .note{border-left:4px solid var(--warn);background:#fffbeb;padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px}
+  .note.info{border-color:var(--info);background:#eff6ff}
+  ul{margin:8px 0;padding-left:22px}
+  li{margin:4px 0}
+  .toc a{color:var(--brand2);text-decoration:none;font-size:14px}
+  .toc a:hover{text-decoration:underline}
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;margin:10px 0}
+  .flow span{background:#f0fdfa;border:1px solid #5eead4;border-radius:8px;padding:6px 12px}
+  .flow .ar{color:var(--brand);font-weight:700}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>CDSS 프로젝트 작업 요약</h1>
+    <p>두경부암 방사선치료 임상의사결정 지원 시스템 — 데이터 · DB · 서빙 구축 기록</p>
+    <p style="margin-top:8px;font-size:13px">작성일 2026-06-22 · 데이터 QIN-HEADNECK 278명 · React + FastAPI + PostgreSQL</p>
+  </div>
+</header>
+<main class="wrap">
+
+  <section>
+    <h2><span class="n">0</span>개요</h2>
+    <p>완성된 외부 예측모델(train/validation 완료)을 <b>test 데이터로 구동·기록하는 CDSS 서빙 계층</b>을 구축했다.
+       원본 임상 엑셀을 표준 스키마로 변환해 PostgreSQL에 적재하고, 예측 API와 운영 로그까지 갖췄다.</p>
+    <div class="grid">
+      <div class="stat"><div class="v">278</div><div class="l">환자 (QIN-HEADNECK)</div></div>
+      <div class="stat"><div class="v">38</div><div class="l">임상 컬럼</div></div>
+      <div class="stat"><div class="v">7</div><div class="l">DB 테이블</div></div>
+      <div class="stat"><div class="v">16/16</div><div class="l">테스트 통과</div></div>
+    </div>
+    <p class="toc">바로가기:
+      <a href="#s1">1 데이터 파이프라인</a> ·
+      <a href="#s2">2 데이터베이스</a> ·
+      <a href="#s3">3 합성 데이터</a> ·
+      <a href="#s4">4 CDSS 모듈</a> ·
+      <a href="#s5">5 서빙·모델</a> ·
+      <a href="#s6">6 운영 테이블</a> ·
+      <a href="#s7">7 품질·검증</a> ·
+      <a href="#s8">8 현재 상태</a>
+    </p>
+  </section>
+
+  <section id="s1">
+    <h2><span class="n">1</span>데이터 파이프라인</h2>
+    <p>원본 엑셀(QIN-HEADNECK Batch1+2, 시트별 중복헤더 제거 후 278명)을 아주대 데이터설명서의 38컬럼 정형 스키마로 변환했다.</p>
+    <div class="flow">
+      <span>원본 엑셀 (.xlsx)</span><span class="ar">→</span>
+      <span>transform_clinical_to_schema.py</span><span class="ar">→</span>
+      <span>clinical_data_schema.csv (278×38)</span><span class="ar">→</span>
+      <span>load_csv_to_db.py</span><span class="ar">→</span>
+      <span>PostgreSQL · patients</span>
+    </div>
+    <h3>주요 변환 규칙</h3>
+    <ul>
+      <li>locationcancer = 전부 4(두경부암), birth_date = 연도+가상월(YYYYMM)</li>
+      <li>treatmethod / treatech / relapse / deathsign = 코드 매핑</li>
+      <li><b>방사선 단위 Gy 통일</b>: cGy 혼재 정규화(총선량&gt;200 ÷100, 회당&gt;100 ÷100) → 분할횟수 재계산</li>
+      <li>회당선량 오기재 5건(32/35/36 = 분할횟수 오기재) 추정 보정 → 회당 2Gy로 정정</li>
+    </ul>
+  </section>
+
+  <section id="s2">
+    <h2><span class="n">2</span>데이터베이스 구성</h2>
+    <table>
+      <tr><th>항목</th><th>내용</th></tr>
+      <tr><td>엔진</td><td>PostgreSQL 16 (root/docker 권한 없어 <b>conda 사용자 공간</b> 운영)</td></tr>
+      <tr><td>접속</td><td><code>postgresql+psycopg2://cdss:cdss@localhost:5432/cdss</code> (backend/.env)</td></tr>
+      <tr><td>ORM</td><td>SQLAlchemy</td></tr>
+      <tr><td>스키마 관리</td><td><b>Alembic 마이그레이션 단일 소스</b> (create_all 제거). head=<code>a708f50a1e13</code></td></tr>
+    </table>
+    <h3>테이블 7개</h3>
+    <table>
+      <tr><th>테이블</th><th>역할</th><th>상태</th></tr>
+      <tr><td>users</td><td>로그인 / JWT / 권한</td><td><span class="badge b-ok">운영</span></td></tr>
+      <tr><td>patients</td><td>환자 임상 38컬럼 (모델 입력)</td><td><span class="badge b-ok">278행</span></td></tr>
+      <tr><td>radiomics_features</td><td>CBCT 라디오믹스 (patient_id + JSONB)</td><td><span class="badge b-warn">빈 채 유지</span></td></tr>
+      <tr><td>predictions</td><td>예측 결과 로그</td><td><span class="badge b-ok">운영</span></td></tr>
+      <tr><td>model_registry</td><td>로드 pkl 버전·입력명세 추적</td><td><span class="badge b-ok">운영</span></td></tr>
+      <tr><td>audit_log</td><td>접근/행위 감사</td><td><span class="badge b-ok">운영</span></td></tr>
+      <tr><td>alembic_version</td><td>마이그레이션 리비전</td><td><span class="badge b-info">시스템</span></td></tr>
+    </table>
+    <pre><span class="c"># 기동 (재부팅 후)</span>
+pg_ctl -D ~/cdss_pgdata -l ~/cdss_pg.log -o "-p 5432" start
+<span class="c"># 스키마 + 데이터</span>
+alembic upgrade head
+python load_csv_to_db.py</pre>
+  </section>
+
+  <section id="s3">
+    <h2><span class="n">3</span>합성(가상) 데이터</h2>
+    <p>실데이터 확보 불가로 6개 컬럼은 <b>비율 기반 합성값이 최종값</b>이다.
+       <code>fill_deferred_columns.py</code>가 비율대로 개수 배분 + 시드 고정으로 CSV에 영구 반영한다.</p>
+    <table>
+      <tr><th>컬럼</th><th>비율</th><th>결과 분포</th></tr>
+      <tr><td>classification_cancer</td><td>1:7 / 2:1 / 3:3</td><td>177 / 25 / 76</td></tr>
+      <tr><td>surgical_cancer_t</td><td>0~4 = 5:30:55:35:60</td><td>7 / 45 / 83 / 53 / 90</td></tr>
+      <tr><td>surgical_cancer_n</td><td>0~3 = 70:35:20:5</td><td>149 / 75 / 43 / 11</td></tr>
+      <tr><td>surgical_cancer_m</td><td>전부 0</td><td>278</td></tr>
+      <tr><td>bp</td><td>N:Y = 350:200</td><td>177 / 101</td></tr>
+      <tr><td>familyhistory</td><td>N:Y = 500:50</td><td>253 / 25</td></tr>
+    </table>
+    <div class="note"><b>분석 주의:</b> 무작위 비율 배정이라 분포만 맞고 개별 환자의 결과·타변수와 실제 상관이 없다(모델에선 잡음). 발표·해석 시 "분포만 합성한 가상값"임을 명시할 것.</div>
+  </section>
+
+  <section id="s4">
+    <h2><span class="n">4</span>CDSS 모듈 명세</h2>
+    <h3>모듈 1 — HTE (이질적 처치효과)</h3>
+    <p>처치 = treatmethod 4군. 출력 = 쌍대 처치효과 4종 (2×2 요인: 항암추가 · 수술추가).</p>
+    <table>
+      <tr><th>처치군</th><th>인원</th><th>비교 대비</th></tr>
+      <tr><td>1 방사선단독</td><td>24</td><td rowspan="4">1vs2, 3vs4 (항암 추가효과)<br>1vs3, 2vs4 (수술 추가효과)</td></tr>
+      <tr><td>2 항암방사선</td><td>165</td></tr>
+      <tr><td>3 수술+방사선</td><td>35</td></tr>
+      <tr><td>4 수술+항암방사선</td><td>40</td></tr>
+    </table>
+    <p><span class="badge b-warn">대기</span> 결과변수(outcome)는 파생결과로 추후 제공 → 현재 구조만 준비.</p>
+
+    <h3>모듈 2 — 예후예측</h3>
+    <p>입력 = 임상 16종 (+ 라디오믹스). 출력 = <b>5년 무재발생존 이진</b> (1=5년내 재발·사망 없음 / 0=있음).</p>
+    <table>
+      <tr><th>라벨</th><th>인원</th></tr>
+      <tr><td>1 (5년 무사건)</td><td>87</td></tr>
+      <tr><td>0 (5년내 사건)</td><td>115</td></tr>
+      <tr><td>모호(5년 전 중도절단, 제외)</td><td>76</td></tr>
+      <tr><td><b>학습가능</b></td><td><b>202</b></td></tr>
+    </table>
+    <div class="note">라디오믹스 확보 불가 → 모듈2는 <b>임상변수 단독</b>으로 구성. 결합 설계(<code>RADIOMICS_FUSION.md</code>: 2-stage Rad-score + ComBat)는 향후용 휴면 문서로 보존.</div>
+  </section>
+
+  <section id="s5">
+    <h2><span class="n">5</span>서빙 · 모델</h2>
+    <ul>
+      <li><b>단일 진실 공급원</b> <code>cdss/features.py</code> — 학습·서빙이 같은 feature 정의/인코딩 공유 (불일치=조용한 오예측 방지)</li>
+      <li>입력 feature 17종 + 라벨 함수(<code>rfs_label_5yr</code>, <code>survival_label</code>) + 처치군(<code>treatment_arm</code>, <code>HTE_CONTRASTS</code>)</li>
+      <li>모델 래퍼(<code>model_wrappers.py</code>)에 imputer 내장 → pkl 하나로 전처리+추론, 학습↔서빙 호환</li>
+      <li>모델이 없으면 더미 응답 반환 → 모델 없이도 전체 흐름 동작</li>
+    </ul>
+    <div class="note info"><b>프로젝트 성격:</b> 모델은 외부에서 완성(train/val). 이 레포의 <code>ml_models/*.joblib</code>은 외부 pkl 도착 전까지의 <b>임시 스탠드인</b>, <code>ml_training/*</code>은 참고용. 외부 pkl 수령 시 입력명세·전처리 포함여부에 맞춰 features.py 정렬 후 교체. 파생변수는 규칙을 받으면 서빙에서 자동 생성 가능.</div>
+    <p>참고 베이스라인(5-fold CV): 예후 Cox <b>C-index ≈ 0.64</b>, HTE 결과모델 <b>AUC ≈ 0.69</b> (학습데이터 기준 0.70 → 정직한 일반화 추정).</p>
+  </section>
+
+  <section id="s6">
+    <h2><span class="n">6</span>운영 테이블 + 예측 로깅</h2>
+    <p>예측 API 호출 시 결과와 접근 이력이 자동 기록된다.</p>
+    <div class="flow">
+      <span>POST /api/cdss/hte · /prognosis</span><span class="ar">→</span>
+      <span>features 생성</span><span class="ar">→</span>
+      <span>모델 예측</span><span class="ar">→</span>
+      <span>Prediction + AuditLog 기록</span>
+    </div>
+    <ul>
+      <li><b>predictions</b>: 환자(정수 id)·모듈·입력스냅샷(JSON)·출력(JSON)·모델버전·사용자·시각</li>
+      <li><b>model_registry</b>: pkl 버전·파일명·입력명세·외부지표·활성여부</li>
+      <li><b>audit_log</b>: 사용자·action·resource·시각</li>
+    </ul>
+    <p>검증: 환자기반 예측(<code>patient_id=557</code>)·features기반(<code>patient_id=None</code>) 모두 기록 확인.</p>
+  </section>
+
+  <section id="s7">
+    <h2><span class="n">7</span>품질 · 검증</h2>
+    <table>
+      <tr><th>항목</th><th>결과</th></tr>
+      <tr><td>단위 테스트 (pytest)</td><td><span class="badge b-ok">16/16 통과</span> features 인코딩·라벨·서빙·API</td></tr>
+      <tr><td>교차검증 평가</td><td>학습데이터 낙관 편향 정정 (evaluate.py)</td></tr>
+      <tr><td>Alembic 드리프트</td><td><span class="badge b-ok">없음</span> (모델↔DB 일치)</td></tr>
+      <tr><td>데이터 정합성</td><td><span class="badge b-ok">이상 0</span> 날짜역전·중복·범위·NULL</td></tr>
+      <tr><td>버그 수정</td><td><b>bcrypt 4.0.1 고정</b> (passlib 비호환으로 로그인 깨짐 해결) · 프론트 옛 feature 제거</td></tr>
+    </table>
+  </section>
+
+  <section id="s8">
+    <h2><span class="n">8</span>현재 상태 / 남은 일</h2>
+    <table>
+      <tr><th>영역</th><th>상태</th></tr>
+      <tr><td>임상 38컬럼 데이터</td><td><span class="badge b-ok">완비</span> 실데이터 32 + 합성 6</td></tr>
+      <tr><td>DB · 마이그레이션 · 서빙 · 로깅</td><td><span class="badge b-ok">완료</span></td></tr>
+      <tr><td>라디오믹스</td><td><span class="badge b-bad">확보 불가</span> 테이블만 유지</td></tr>
+      <tr><td>외부 모델 pkl</td><td><span class="badge b-warn">대기</span> 입력명세와 함께 수령 시 연결</td></tr>
+      <tr><td>모듈1 파생 outcome</td><td><span class="badge b-warn">대기</span> 수령 시 4군 쌍대대비 학습</td></tr>
+    </table>
+    <div class="note info">외부 pkl 수령 시: model_registry에 버전 등록 → <code>ml_models/</code>에 배치 → features.py 입력 정렬 → 예측이 predictions에 적재되는 흐름으로 바로 운영.</div>
+  </section>
+
+</main>
+<footer>CDSS 프로젝트 작업 요약 · 생성: Claude Code</footer>
+</body>
+</html>

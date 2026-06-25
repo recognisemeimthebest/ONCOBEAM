@@ -1,0 +1,249 @@
+"""CDSS 실모델 서비스 (py3.11 / cdss_ml 환경).
+
+루트의 3개 학습 산출물을 그대로 로드해 환자별 예측을 제공한다.
+- causalforest_models.pkl : 4개 대비별 econml CausalForestDML  → CATE + 신뢰구간 (왼쪽)
+- xgb_model.pkl           : XGBClassifier(36피처) 5년 사건 위험  → 위험확률 (오른쪽)
+- shap_explainer_1_vs_2.pkl: 1_vs_2 대비 RandomForest + SHAP   → 변수 기여도 (아래)
+
+라디오믹스 피처는 DB radiomics_features(source=random_demo)에서 가져온다(데모용 무작위값).
+임상 피처는 patients 테이블에서 조립한다. 학습 피처정의는 다운로드/HTE/config.json 기준.
+실행: cd model_service && uvicorn app:app --port 8011
+"""
+import pickle
+import re
+import warnings
+from pathlib import Path
+
+import joblib
+import numpy as np
+import shap
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sqlalchemy import create_engine, text
+
+warnings.filterwarnings("ignore")
+
+MODELS = Path(__file__).resolve().parent / "models"
+DB_URL = "postgresql+psycopg2://cdss:cdss@localhost:5432/cdss"
+engine = create_engine(DB_URL)
+
+# ── 모델 로드 ────────────────────────────────────────────────────────────────
+CF = joblib.load(MODELS / "causalforest_models.pkl")        # dict: 4 contrasts
+XGB = joblib.load(MODELS / "xgb_model.pkl")                 # {'model','features'}
+XGB_MODEL, XGB_FEATURES = XGB["model"], XGB["features"]
+
+
+class _Any:  # shap pkl의 numba 객체를 건너뛰기 위한 스텁
+    def __init__(self, *a, **k): pass
+    def __new__(cls, *a, **k): return object.__new__(cls)
+    def __setstate__(self, s): pass
+    def __call__(self, *a, **k): return self
+    def __getattr__(self, n): return _Any()
+
+
+class _SkipUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        if module.startswith(("numba", "llvmlite")) or module.startswith("shap"):
+            return _Any
+        return super().find_class(module, name)
+
+
+with open(MODELS / "shap_explainer_1_vs_2.pkl", "rb") as f:
+    _shap_obj = _SkipUnpickler(f).load()          # explainer는 스텁, rf만 실제
+SHAP_RF = _shap_obj["rf"]
+SHAP_FEATURES = _shap_obj["features"]             # 9개 (causalforest와 동일 순서)
+SHAP_EXPLAINER = shap.TreeExplainer(SHAP_RF, feature_perturbation="tree_path_dependent")
+
+# 대비 라벨 (config.json)
+PAIR_LABELS = {
+    "1_vs_2": "방사선 vs 항암방사선 (항암 추가 효과)",
+    "3_vs_4": "수술+방사선 vs 수술+항암방사선 (수술후 항암 추가)",
+    "1_vs_3": "방사선 vs 수술+방사선 (수술 추가 효과)",
+    "2_vs_4": "항암방사선 vs 수술+항암방사선 (수술 추가 효과)",
+}
+BONFERRONI_ALPHA = 0.05 / len(CF)   # 4개 대비 보정
+
+FEATURE_KO = {
+    "age_at_tx": "진단시 나이", "weight": "체중", "totaldose": "총선량",
+    "radiationcnt": "방사선 횟수", "radiationperdose": "회당 선량",
+    "pre_original_glcm_InverseVariance": "라디오믹스·GLCM 역분산",
+    "pre_original_ngtdm_Busyness": "라디오믹스·NGTDM Busyness",
+    "post_original_glrlm_HighGrayLevelRunEmphasis": "라디오믹스·GLRLM HGLRE",
+    "post_original_glszm_HighGrayLevelZoneEmphasis": "라디오믹스·GLSZM HGLZE",
+}
+
+# ── 피처 조립 ────────────────────────────────────────────────────────────────
+def _ord(v):
+    if v is None:
+        return np.nan
+    m = re.match(r"\s*(\d+)", str(v))
+    return float(m.group(1)) if m else np.nan
+
+
+def _num(v):
+    try:
+        return float(v) if v is not None else np.nan
+    except (TypeError, ValueError):
+        return np.nan
+
+
+def _age_at_tx(p):
+    by = None
+    if p["birth_date"]:
+        m = re.match(r"(\d{4})", str(p["birth_date"]))
+        by = int(m.group(1)) if m else None
+    if by is None:
+        return np.nan
+    ref = p["initialdate"].year if p["initialdate"] else 2020
+    return float(ref - by)
+
+
+def _age_group(age):
+    if np.isnan(age):
+        return None
+    if age < 40: return "<40yrs"
+    if age < 50: return "40-49yrs"
+    if age < 60: return "50-59yrs"
+    if age < 70: return "60-69yrs"
+    if age < 80: return "70-79yrs"
+    return ">80yrs"
+
+
+def causalforest_vector(p, rad):
+    """9피처: 임상 5 + 라디오믹스 4 (causalforest/shap 공용)."""
+    v = [
+        _age_at_tx(p), _num(p["weight"]), _num(p["totaldose"]),
+        _num(p["radiationcnt"]), _num(p["radiationperdose"]),
+        rad.get("pre_original_glcm_InverseVariance", 0.0),
+        rad.get("pre_original_ngtdm_Busyness", 0.0),
+        rad.get("post_original_glrlm_HighGrayLevelRunEmphasis", 0.0),
+        rad.get("post_original_glszm_HighGrayLevelZoneEmphasis", 0.0),
+    ]
+    # causal forest는 NaN 불가 → 0 대체
+    return np.array([[0.0 if (x is None or np.isnan(x)) else x for x in v]])
+
+
+def xgb_vector(p, rad):
+    """36피처 (xgb_model['features'] 순서). 결측은 NaN(XGBoost 자체 처리)."""
+    age = _age_at_tx(p)
+    ag = _age_group(age)
+    sex = p["sex"]
+    feat = {
+        "pre_original_firstorder_10Percentile": rad.get("pre_original_firstorder_10Percentile", np.nan),
+        "pre_original_firstorder_MeanAbsoluteDeviation": rad.get("pre_original_firstorder_MeanAbsoluteDeviation", np.nan),
+        "pre_original_gldm_DependenceEntropy": rad.get("pre_original_gldm_DependenceEntropy", np.nan),
+        "pre_original_ngtdm_Coarseness": rad.get("pre_original_ngtdm_Coarseness", np.nan),
+        "pre_original_ngtdm_Contrast": rad.get("pre_original_ngtdm_Contrast", np.nan),
+        "delta_original_firstorder_Median": rad.get("delta_original_firstorder_Median", np.nan),
+        "classification cancer": _num(p["classification_cancer"]),
+        "totaldose": _num(p["totaldose"]), "radiationcnt": _num(p["radiationcnt"]),
+        "radiationperdose": _num(p["radiationperdose"]), "treatmethod": _num(p["treatmethod"]),
+        "treatech": _num(p["treatech"]), "height": _num(p["height"]), "weight": _num(p["weight"]),
+        "locationcancer": _num(p["locationcancer"]), "age_at_tx": age,
+        "img_stage": _ord(p["cancerimaging"]), "imgT_stage": _ord(p["cancerimaging_t"]),
+        "imgN_stage": _ord(p["cancerimaging_n"]), "imgM_stage": _ord(p["cancerimaging_m"]),
+        "sex_F": 1.0 if sex == "F" else 0.0, "sex_M": 1.0 if sex == "M" else 0.0,
+        "bp_N": 1.0 if p["bp"] == "N" else 0.0, "bp_Y": 1.0 if p["bp"] == "Y" else 0.0,
+        "bs_N": 1.0 if p["bs"] == "N" else 0.0, "bs_Y": 1.0 if p["bs"] == "Y" else 0.0,
+        "sm_N": 1.0 if p["sm"] == "N" else 0.0, "sm_Y": 1.0 if p["sm"] == "Y" else 0.0,
+        "familyhistory_N": 1.0 if p["familyhistory"] == "N" else 0.0,
+        "familyhistory_Y": 1.0 if p["familyhistory"] == "Y" else 0.0,
+    }
+    for g in ["40-49yrs", "50-59yrs", "60-69yrs", "70-79yrs", "<40yrs", ">80yrs"]:
+        feat[f"age_group_{g}"] = 1.0 if ag == g else 0.0
+    return np.array([[feat[k] for k in XGB_FEATURES]])
+
+
+# ── DB 조회 ──────────────────────────────────────────────────────────────────
+PATIENT_COLS = ("id, patient_id, classification_cancer, totaldose, radiationcnt, "
+                "radiationperdose, treatmethod, treatech, height, weight, locationcancer, "
+                "birth_date, initialdate, sex, bp, bs, sm, familyhistory, cancerimaging, "
+                "cancerimaging_t, cancerimaging_n, cancerimaging_m")
+
+
+def load_patient(pid):
+    with engine.connect() as c:
+        row = c.execute(text(
+            f"select {PATIENT_COLS} from patients where patient_id=:p"), {"p": pid}).mappings().first()
+        rad = c.execute(text(
+            "select features from radiomics_features where patient_id=:p and source='random_demo'"),
+            {"p": pid}).scalar()
+    return (dict(row) if row else None), (rad or None)
+
+
+# ── API ──────────────────────────────────────────────────────────────────────
+app = FastAPI(title="CDSS Model Service", version="1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_methods=["*"], allow_headers=["*"],
+)
+
+
+class PredictReq(BaseModel):
+    patient_id: str
+
+
+@app.get("/active_patients")
+def active_patients():
+    """영상(라디오믹스)이 배정된 환자만 — EMR에 노출할 대상."""
+    with engine.connect() as c:
+        rows = c.execute(text(
+            "select patient_id, features->>'__image_case' as image_case "
+            "from radiomics_features where source='random_demo' order by patient_id")).mappings().all()
+    return {"patient_ids": [r["patient_id"] for r in rows],
+            "items": [dict(r) for r in rows]}
+
+
+@app.post("/predict")
+def predict(req: PredictReq):
+    p, rad = load_patient(req.patient_id)
+    if p is None:
+        raise HTTPException(404, "환자를 찾을 수 없습니다.")
+    if rad is None:
+        raise HTTPException(409, "영상(라디오믹스)이 배정되지 않은 환자입니다.")
+
+    # 1) Causal Forest — 대비별 CATE + Bonferroni CI (왼쪽)
+    Xcf = causalforest_vector(p, rad)
+    contrasts = []
+    for key, model in CF.items():
+        a, b = key.split("_vs_")
+        cate = float(model.effect(Xcf)[0])
+        lo, hi = model.effect_interval(Xcf, alpha=BONFERRONI_ALPHA)
+        lo, hi = float(lo[0]), float(hi[0])
+        contrasts.append({
+            "key": key, "a": int(a), "b": int(b),
+            "label": PAIR_LABELS.get(key, key),
+            "cate": cate, "ci_low": lo, "ci_high": hi,
+            "significant": bool(lo > 0 or hi < 0),
+        })
+
+    # 2) XGBoost — 5년 사건(재발/사망) 위험확률 (오른쪽)
+    Xxgb = xgb_vector(p, rad)
+    prob_event = float(XGB_MODEL.predict_proba(Xxgb)[0, 1])
+
+    # 3) SHAP — 1_vs_2 대비 변수 기여도 (아래)
+    sv = SHAP_EXPLAINER.shap_values(Xcf)[0]
+    base = float(np.ravel(SHAP_EXPLAINER.expected_value)[0])
+    shap_list = sorted(
+        [{"feature": f, "feature_ko": FEATURE_KO.get(f, f),
+          "value": float(v), "x": float(Xcf[0, i])}
+         for i, (f, v) in enumerate(zip(SHAP_FEATURES, sv))],
+        key=lambda d: abs(d["value"]), reverse=True)
+
+    return {
+        "patient_id": req.patient_id,
+        "image_case": rad.get("__image_case"),
+        "bonferroni_alpha": BONFERRONI_ALPHA,
+        "contrasts": contrasts,
+        "xgb": {"prob_event_5yr": prob_event},
+        "shap": {"base_value": base, "contributions": shap_list,
+                 "contrast": "1_vs_2", "contrast_label": PAIR_LABELS["1_vs_2"]},
+    }
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "models": ["causalforest", "xgb", "shap"],
+            "contrasts": list(CF.keys()), "n_active": len(active_patients()["patient_ids"])}

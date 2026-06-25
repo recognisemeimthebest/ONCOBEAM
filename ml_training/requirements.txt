@@ -1,0 +1,16 @@
+# 모델 "학습"용 (백엔드 서빙과 분리된 환경)
+pandas
+numpy
+scikit-learn
+joblib
+
+# HTE (인과추론) — 둘 중 하나 선택
+econml
+# causalml
+
+# 예후예측 (생존분석)
+scikit-survival
+lifelines
+
+# 실험용 노트북
+jupyter

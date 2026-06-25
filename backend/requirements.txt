@@ -1,0 +1,27 @@
+# --- 웹 서버 핵심 ---
+fastapi
+uvicorn[standard]
+
+# --- 데이터베이스 ---
+sqlalchemy
+psycopg2-binary   # PostgreSQL 드라이버
+alembic           # 스키마 마이그레이션
+
+# --- CSV 적재 스크립트용 ---
+pandas
+openpyxl
+
+# --- 설정 / 검증 ---
+pydantic-settings
+
+# --- 인증 (로그인/JWT) ---
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt==4.0.1   # passlib 1.7.x 호환 (4.1+ 는 hash 오류)
+python-multipart
+
+# --- 저장된 ML 모델 불러오기 (서빙용) ---
+joblib
+
+# --- 테스트 ---
+pytest
