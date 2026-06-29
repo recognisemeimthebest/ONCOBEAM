@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchPatients, fetchActivePatients, predictPatient, getToken, clearToken } from './api'
+import { fetchPatients, fetchActivePatients, predictPatient, fetchMe, getToken, clearToken } from './api'
 import { mapPatient } from './lib/mapPatient'
 import { matchAll } from './search'
 import Login from './components/Login'
@@ -24,6 +24,12 @@ export default function App() {
   const [tab, setTab] = useState('진료실')
   const [modal, setModal] = useState(null) // { type, payload }
   const [triage, setTriage] = useState({}) // id -> { risk_tier, risk_prob, diverges, suggested }
+  const [doctor, setDoctor] = useState(null)
+
+  useEffect(() => {
+    if (!authed) return
+    fetchMe().then((u) => setDoctor(u.username)).catch(() => {})
+  }, [authed])
 
   // 로그인되면 DB에서 환자 목록을 불러와 UI 형태로 매핑한다.
   useEffect(() => {
@@ -131,7 +137,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen min-w-[1100px] flex-col bg-bg text-ink">
-      <TitleBar onAdd={addFilter} patients={patients} results={results} onPick={setPatientId} onLogout={logout} />
+      <TitleBar onAdd={addFilter} patients={patients} results={results} onPick={setPatientId} onLogout={logout} doctor={doctor} />
       <TabStrip tab={tab} onTab={setTab} />
       <FilterBar
         filters={filters}
@@ -143,7 +149,7 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         <PatientQueue patients={results} patientId={patientId} onSelect={setPatientId} triage={triage} />
-        {patient && <PatientSummary patient={patient} openModal={openModal} />}
+        {patient && <PatientSummary patient={patient} openModal={openModal} triage={triage[patient.id]} />}
         {patient && <ClinicalNote patient={patient} openModal={openModal} onAdoptPlan={adoptPlan} />}
       </div>
 

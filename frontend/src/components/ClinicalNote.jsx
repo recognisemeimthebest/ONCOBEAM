@@ -19,19 +19,8 @@ export default function ClinicalNote({ patient, openModal, onAdoptPlan }) {
         <div className="emr-head">
           <span>진료 기록 작성</span>
           <span className="ml-2 text-[14px] font-normal text-ink-soft">
-            {patient.history[0]?.date}
+            최근 내원 {patient.history[0]?.date}
           </span>
-          <div className="ml-auto flex items-center gap-1">
-            {['↶', '↷', 'B', 'I', 'U', '⛶', '🖼️', '템플릿'].map((t, i) => (
-              <button
-                key={i}
-                type="button"
-                className="flex h-5 items-center justify-center rounded-sm border border-line bg-panel px-1.5 text-[14px] hover:bg-[#eaf2fd]"
-              >
-                {t}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* 보험 / 구분 / 주상병 */}
@@ -49,7 +38,7 @@ export default function ClinicalNote({ patient, openModal, onAdoptPlan }) {
         <div className="px-2 py-2">
           <p className="mb-1 text-[15px] font-semibold text-ink-soft">증상 / 소견 (S/O)</p>
           <textarea
-            defaultValue={`${patient.location} ${patient.stage.t}${patient.stage.n}${patient.stage.m}, ${plan.ko}(${plan.en}) 진행 중.\nCBCT 반응 평가 및 치료법 적정성 AI 검토 시행.`}
+            defaultValue={`${patient.location} ${patient.stage.t}${patient.stage.n}${patient.stage.m}, ${plan.ko}(${plan.en}) 진행 중.\n치료법 적정성·예후 AI 의사결정 지원 검토 시행 (상단 권고 참조).`}
             className="h-20 w-full resize-none rounded border border-line bg-white p-2 text-[16px] leading-relaxed outline-none focus:border-accent focus:ring-2 focus:ring-[rgba(43,108,176,0.15)]"
           />
         </div>
@@ -89,17 +78,6 @@ export default function ClinicalNote({ patient, openModal, onAdoptPlan }) {
             ))}
           </tbody>
         </table>
-      </div>
-
-      {/* 푸터 */}
-      <div className="sticky bottom-0 mt-auto flex items-center gap-2 border-t border-line bg-panel px-2 py-1.5">
-        <input
-          placeholder="처방 코드/명 입력 (예: C-02, Cisplatin) …"
-          className="emr-input flex-1"
-        />
-        <button type="button" className="emr-btn">사전점검</button>
-        <button type="button" className="emr-btn">작성취소</button>
-        <button type="button" className="emr-btn-primary emr-btn">진료완료(F8)</button>
       </div>
     </section>
   )

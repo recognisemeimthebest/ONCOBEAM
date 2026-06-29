@@ -13,6 +13,24 @@ const VWIN_DAYS = 354
 const DAY = 86400000
 
 const LOCATION_BY_CODE = { 1: '직장', 2: '전립선', 3: '여성암', 4: '두경부', 9: '기타' }
+
+// 두경부 원발부위 → ICD-10 (대표코드). diagnosis 문자열 부분일치.
+const ICD_RULES = [
+  [/tonsil|pharyngeal tonsil/i, 'C09.9'],
+  [/base of tongue/i, 'C01'],
+  [/oral tongue|^tongue/i, 'C02.9'],
+  [/nasopharynx/i, 'C11.9'],
+  [/oropharynx|uvula|posterior/i, 'C10.9'],
+  [/hypopharynx|pyriform/i, 'C13.9'],
+  [/supraglottis|glottis|larynx/i, 'C32.9'],
+  [/floor of mouth|buccal|retromolar|alveolar|oral cavity|lip/i, 'C06.9'],
+  [/maxillary sinus|paranasal|nasal cavity/i, 'C31.9'],
+  [/salivary/i, 'C08.9'],
+]
+const icdFor = (site) => {
+  for (const [re, code] of ICD_RULES) if (re.test(site)) return code
+  return 'C76.0' // 두경부 상세불명
+}
 const TECHNIQUE_BY_CODE = { 1: 'conformal', 2: 'IMRT', 3: 'etc' }
 const RELAPSE_LABEL = { 1: '재발 없음', 2: '국소 재발', 3: '원격 전이' }
 
@@ -104,7 +122,7 @@ export function mapPatient(row) {
       smoking: row.sm === 'Y' ? '흡연' : '비흡연',
       familyHistory: row.familyhistory === 'Y' ? '있음' : '없음',
     },
-    diagnoses: [{ code: row.cancerimaging ?? '-', name: site, main: true }],
+    diagnoses: [{ code: icdFor(site), name: `${site} ${stage.t}${stage.n}${stage.m}`.trim(), main: true }],
     vitals: { height: row.height ?? '-', weight: row.weight ?? '-', bmi },
     plan: {
       treatment: row.treatmethod >= 1 && row.treatmethod <= 4 ? row.treatmethod : 1,

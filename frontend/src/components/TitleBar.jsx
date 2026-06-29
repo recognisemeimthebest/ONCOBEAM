@@ -2,7 +2,13 @@ import { useMemo, useState } from 'react'
 import { fieldDefs, FIELD_ORDER } from '../search'
 
 // 상단 타이틀바 — 의원명 + 복합 필터 추가(카테고리+값) + 빠른 선택 드롭다운
-export default function TitleBar({ onAdd, patients, results, onPick, onLogout }) {
+const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토']
+const nowStr = () => {
+  const d = new Date(); const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} (${WEEKDAY[d.getDay()]}) ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+export default function TitleBar({ onAdd, patients, results, onPick, onLogout, doctor }) {
   const [field, setField] = useState('환자번호')
   const [draft, setDraft] = useState('')
   const [open, setOpen] = useState(false)
@@ -36,8 +42,8 @@ export default function TitleBar({ onAdd, patients, results, onPick, onLogout })
         <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-white/20 text-[15px] font-bold">
           H&amp;N
         </span>
-        <span className="text-[18px] font-bold">세나RT의원</span>
-        <span className="text-[15px] text-white/70">| 두경부암 RT 클리닉</span>
+        <span className="text-[18px] font-bold">ONCOBEAM</span>
+        <span className="text-[15px] text-white/70">| 두경부암 RT 임상의사결정지원(CDSS)</span>
       </div>
 
       {/* 복합 필터 추가 */}
@@ -143,9 +149,9 @@ export default function TitleBar({ onAdd, patients, results, onPick, onLogout })
 
       {/* 우측 정보 */}
       <div className="flex items-center gap-3 text-[15px]">
-        <span className="hidden tabular md:inline">2026.06.23 (화) 09:14</span>
+        <span className="hidden tabular md:inline">{nowStr()}</span>
         <span className="rounded-sm bg-white/15 px-2 py-0.5">
-          진료의 <b className="font-semibold">홍은혜</b>
+          진료의 <b className="font-semibold">{doctor ?? '—'}</b>
         </span>
         <div className="flex items-center gap-1.5 text-[18px]">
           <button type="button" className="hover:opacity-80" title="알림">🔔</button>

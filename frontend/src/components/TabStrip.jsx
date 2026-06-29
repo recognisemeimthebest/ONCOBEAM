@@ -24,9 +24,8 @@ export default function TabStrip({ tab, onTab }) {
         )
       })}
       <div className="ml-auto flex items-center gap-2 pb-1 pr-1 text-[15px] text-ink-soft">
-        <span className="emr-badge">대기 3</span>
         <span className="emr-badge" style={{ background: '#e3f3e7', color: '#1f7a44' }}>
-          완료 1
+          AI 의사결정 지원 활성
         </span>
       </div>
     </nav>
