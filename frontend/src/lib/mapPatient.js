@@ -106,17 +106,6 @@ export function mapPatient(row) {
     },
     prescriptions,
     history,
-
-    // ── AI 분석(미연동) — 안전 placeholder. /api/cdss 연동 시 교체 예정 ──
-    recurrence: { 1: 0, 2: 0, 3: 0, 4: 0 },
-    verdict: 'uncertain',
-    cate: [],
-    shap: [],
-    recommendation: 'AI 분석 미연동 단계입니다. (환자 기본정보만 DB 연결됨)',
-    cbct: {
-      bbox: [],
-      volume: [{ week: 1, volume: 100, current: true }],
-      effect: { label: 'warning', score: 0, reasons: ['AI 반응 평가 미연동'], recommendation: '—' },
-    },
+    // AI 분석은 model_service(/predict)에서 실시간 산출 → patient 객체엔 placeholder 불요.
   }
 }

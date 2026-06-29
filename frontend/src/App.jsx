@@ -11,8 +11,7 @@ import PatientSummary from './components/PatientSummary'
 import ClinicalNote from './components/ClinicalNote'
 import StatusBar from './components/StatusBar'
 import Modal from './components/Modal'
-import HtePopup from './components/popups/HtePopup'
-import ResponsePopup from './components/popups/ResponsePopup'
+import EvidencePopup from './components/popups/EvidencePopup'
 
 export default function App() {
   const [authed, setAuthed] = useState(() => !!getToken())
@@ -122,25 +121,15 @@ export default function App() {
 
       {patient && <StatusBar patient={patient} count={results.length} />}
 
-      {/* 팝업 */}
-      {modal?.type === 'hte' && patient && (
+      {/* 팝업 — AI 근거 상세 (모듈1 HTE + 모듈2 XGBoost 통합) */}
+      {modal?.type === 'evidence' && patient && (
         <Modal
-          title="AI 치료법 비교 분석 (HTE 인과추론)"
+          title="AI 근거 상세 — 치료법 비교(HTE) + 예후예측(XGBoost)"
           subtitle={patient.id}
           width={880}
           onClose={closeModal}
         >
-          <HtePopup patient={patient} />
-        </Modal>
-      )}
-      {modal?.type === 'response' && patient && (
-        <Modal
-          title="AI 예후 예측 (5년 재발·사망 위험, XGBoost)"
-          subtitle={patient.id}
-          width={620}
-          onClose={closeModal}
-        >
-          <ResponsePopup patient={patient} />
+          <EvidencePopup patient={patient} />
         </Modal>
       )}
       {modal?.type === 'history' && (

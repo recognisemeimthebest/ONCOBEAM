@@ -1,19 +1,15 @@
-import { VERDICTS, treatmentByCode } from '../data/mockData'
+import { treatmentByCode } from '../data/mockData'
+import AiRecommendationBanner from './AiRecommendationBanner'
 
-const TONE = {
-  good: { bg: '#e6f5ec', fg: '#1f7a44', bd: '#bce3cc' },
-  warn: { bg: '#fdf2e0', fg: '#b8730a', bd: '#f3dcae' },
-  bad: { bg: '#fbe6e8', fg: '#b3303d', bd: '#f1c4c9' },
-}
-
-// 중앙-우 진료기록 작성 — 보험/주상병 / 증상·소견 / AI 의사결정 지원 / 처방 / 완료
+// 중앙-우 진료기록 작성 — AI 권고 배너 / 보험·주상병 / 증상·소견 / 처방 / 완료
 export default function ClinicalNote({ patient, openModal }) {
   const plan = treatmentByCode(patient.plan.treatment)
-  const verdict = VERDICTS[patient.verdict]
-  const vt = TONE[verdict.tone]
 
   return (
     <section className="flex min-w-0 flex-1 flex-col overflow-auto bg-bg">
+      {/* AI 권고 배너 — 상시 노출 (point-of-care) */}
+      <AiRecommendationBanner patient={patient} openModal={openModal} />
+
       {/* 작성 헤더 */}
       <div className="emr-panel m-1.5 mb-0">
         <div className="emr-head">
@@ -55,59 +51,7 @@ export default function ClinicalNote({ patient, openModal }) {
         </div>
       </div>
 
-      {/* AI 의사결정 지원 — 클릭하여 팝업 */}
-      <div className="emr-panel m-1.5 mb-0">
-        <div className="emr-head">
-          <span>AI 의사결정 지원</span>
-          <span className="ml-auto text-[10px] font-normal text-accent">카드 클릭 → 상세 팝업</span>
-        </div>
-        <div className="grid grid-cols-2 gap-2 p-2">
-          {/* 모듈 1: HTE */}
-          <button
-            type="button"
-            onClick={() => openModal('hte')}
-            className="rounded border border-line bg-panel p-2.5 text-left hover:border-accent hover:bg-[#f5f9ff]"
-          >
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-bold text-accent">모듈 1</span>
-              <span className="text-[12px] font-bold">치료법 비교 (HTE)</span>
-            </div>
-            <p className="mt-1 text-[11px] text-ink-soft">
-              4개 치료법 · 6쌍 CATE · Bonferroni 보정 + SHAP 근거
-            </p>
-            <div className="mt-2 flex items-center gap-1.5">
-              <span className="text-[11px] text-ink-soft">현재 계획</span>
-              <b className="text-[11.5px]">{plan.ko}</b>
-              <span
-                className="rounded-sm border px-1.5 py-0.5 text-[10.5px] font-bold"
-                style={{ background: vt.bg, color: vt.fg, borderColor: vt.bd }}
-              >
-                {verdict.ko}
-              </span>
-              <span className="ml-auto text-[11px] font-semibold text-accent">비교 보기 ▸</span>
-            </div>
-          </button>
-
-          {/* 모듈 2: XGBoost 예후 예측 */}
-          <button
-            type="button"
-            onClick={() => openModal('response')}
-            className="rounded border border-line bg-panel p-2.5 text-left hover:border-accent hover:bg-[#f5f9ff]"
-          >
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-bold text-accent">모듈 2</span>
-              <span className="text-[12px] font-bold">예후 예측 (XGBoost)</span>
-            </div>
-            <p className="mt-1 text-[11px] text-ink-soft">
-              36피처(라디오믹스+임상) · 5년 재발·사망 위험확률
-            </p>
-            <div className="mt-2 flex items-center gap-1.5">
-              <span className="text-[11px] text-ink-soft">xgb_model.pkl 실시간 추론</span>
-              <span className="ml-auto text-[11px] font-semibold text-accent">위험도 보기 ▸</span>
-            </div>
-          </button>
-        </div>
-      </div>
+      {/* AI 의사결정 지원은 상단 권고 배너로 통합 — 상세는 배너의 '근거 상세 ▸' */}
 
       {/* 처방 (P) */}
       <div className="emr-panel m-1.5 mb-0">

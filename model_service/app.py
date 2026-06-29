@@ -64,6 +64,10 @@ PAIR_LABELS = {
 }
 BONFERRONI_ALPHA = 0.05 / len(CF)   # 4개 대비 보정
 
+# 치료군 라벨 (treatmethod 1~4)
+ARM_LABELS = {1: "방사선 단독(RT)", 2: "항암방사선(CCRT)",
+              3: "수술+방사선", 4: "수술+항암"}
+
 FEATURE_KO = {
     "age_at_tx": "진단시 나이", "weight": "체중", "totaldose": "총선량",
     "radiationcnt": "방사선 횟수", "radiationperdose": "회당 선량",
@@ -172,6 +176,58 @@ def load_patient(pid):
     return (dict(row) if row else None), (rad or None)
 
 
+# ── 권고 합성 (CATE 4대비 + XGB위험 → 단일 임상 권고) ─────────────────────────
+def synthesize_recommendation(contrasts, prob, current_arm):
+    """쌍대대비 CATE를 치료군 투표로 집계해 권고 치료군을 도출한다.
+
+    유의(CI 0 미포함)한 대비에서 우세한 쪽(CATE>0 → b, <0 → a)에 1표.
+    각 군은 2개 대비에 등장 → 최대 2표. 동점/무유의면 '불확실 → 표준 유지'.
+    """
+    votes = {1: 0, 2: 0, 3: 0, 4: 0}
+    rationale = []
+    n_sig = 0
+    for c in contrasts:
+        a, b = c["a"], c["b"]
+        if c["significant"]:
+            n_sig += 1
+            win, lose = (b, a) if c["cate"] > 0 else (a, b)
+            votes[win] += 1
+            rationale.append(
+                f"{ARM_LABELS[win]}가 {ARM_LABELS[lose]} 대비 우세 "
+                f"(CATE {c['cate']:+.2f}, 보정 CI 0 미포함)")
+    top = max(votes, key=votes.get)
+    suggested = top if votes[top] > 0 else None
+
+    risk_tier = "고위험" if prob >= 0.66 else ("중등도" if prob >= 0.33 else "저위험")
+    confidence = "낮음(불확실)" if n_sig == 0 else ("보통" if n_sig <= 2 else "높음")
+
+    if suggested is None:
+        headline = "AI 판정 불확실 — 표준 치료 유지 권고"
+        rationale = ["유의한 치료군 우열 차이 없음 (모든 대비 보정 CI가 0 포함)"]
+    else:
+        headline = f"AI 권고: {ARM_LABELS[suggested]} · 5년 위험 {prob*100:.0f}%({risk_tier})"
+
+    agrees = (suggested is not None and current_arm in ARM_LABELS
+              and suggested == current_arm)
+    return {
+        "suggested_arm": suggested,
+        "suggested_arm_label": ARM_LABELS.get(suggested),
+        "headline": headline,
+        "rationale": rationale,
+        "risk_prob": prob,
+        "risk_tier": risk_tier,
+        "confidence": confidence,
+        "n_significant": n_sig,
+        "current_arm": current_arm if current_arm in ARM_LABELS else None,
+        "current_arm_label": ARM_LABELS.get(current_arm),
+        "agrees_with_plan": agrees,
+        "caveats": [
+            "라디오믹스 입력은 데모용 자리표시자(무작위) — 영상소견 기여는 미반영",
+            "의사결정 보조 도구이며 최종 판단은 의사 평가에 따릅니다(SaMD)",
+        ],
+    }
+
+
 # ── API ──────────────────────────────────────────────────────────────────────
 app = FastAPI(title="CDSS Model Service", version="1.0")
 app.add_middleware(
@@ -232,10 +288,14 @@ def predict(req: PredictReq):
          for i, (f, v) in enumerate(zip(SHAP_FEATURES, sv))],
         key=lambda d: abs(d["value"]), reverse=True)
 
+    # 4) 권고 합성 (진료화면 배너용)
+    recommendation = synthesize_recommendation(contrasts, prob_event, p.get("treatmethod"))
+
     return {
         "patient_id": req.patient_id,
         "image_case": rad.get("__image_case"),
         "bonferroni_alpha": BONFERRONI_ALPHA,
+        "recommendation": recommendation,
         "contrasts": contrasts,
         "xgb": {"prob_event_5yr": prob_event},
         "shap": {"base_value": base, "contributions": shap_list,
