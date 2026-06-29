@@ -8,6 +8,7 @@ import { treatmentByCode } from '../../data/mockData'
 export default function EvidencePopup({ patient }) {
   const [pred, setPred] = useState(null)
   const [error, setError] = useState(null)
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
     let alive = true
@@ -17,9 +18,15 @@ export default function EvidencePopup({ patient }) {
       .then((d) => alive && setPred(d))
       .catch((e) => alive && setError(e.message))
     return () => { alive = false }
-  }, [patient.id])
+  }, [patient.id, reload])
 
-  if (error) return <div className="emr-panel p-4 text-[16px] text-danger">예측 실패: {error}</div>
+  if (error) return (
+    <div className="emr-panel p-4 text-center">
+      <p className="text-[16px] font-semibold text-danger">근거를 불러오지 못했습니다</p>
+      <p className="mt-1 text-[14px] text-ink-soft">{error}</p>
+      <button type="button" onClick={() => setReload((n) => n + 1)} className="emr-btn-primary emr-btn mt-3">재시도</button>
+    </div>
+  )
   if (!pred) return <div className="emr-panel p-6 text-center text-[16px] text-ink-soft">실모델 추론 중…</div>
 
   return (
@@ -102,6 +109,15 @@ function CausalForestPanel({ contrasts }) {
 
 // ── 모듈2: XGBoost 위험확률 ──────────────────────────────────────────────────
 function XgbRiskPanel({ prob }) {
+  const known = prob != null && Number.isFinite(prob)
+  if (!known) {
+    return (
+      <div className="emr-panel">
+        <div className="emr-head"><span>모듈2 · 5년 재발·사망 위험 (XGBoost 예후)</span></div>
+        <p className="p-4 text-center text-[15px] text-danger">⚠ 예후(XGB) 모델 결과를 산출하지 못했습니다.</p>
+      </div>
+    )
+  }
   const tone = prob >= 0.66
     ? { ring: '#d62839', bg: '#fbe6e8', fg: '#b3303d', label: '고위험' }
     : prob >= 0.33

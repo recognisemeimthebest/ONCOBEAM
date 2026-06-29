@@ -9,6 +9,7 @@
 임상 피처는 patients 테이블에서 조립한다. 학습 피처정의는 다운로드/HTE/config.json 기준.
 실행: cd model_service && uvicorn app:app --port 8011
 """
+import math
 import pickle
 import re
 import warnings
@@ -298,6 +299,12 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(Exception)
+async def _unhandled(request, exc):
+    from fastapi.responses import JSONResponse
+    return JSONResponse(status_code=500, content={"detail": f"서버 내부 오류: {exc}"})
+
+
 class PredictReq(BaseModel):
     patient_id: str
 
@@ -313,62 +320,96 @@ def active_patients():
             "items": [dict(r) for r in rows]}
 
 
+def _sanitize(o):
+    """NaN/inf → None (JSON 유효성). 재귀."""
+    if isinstance(o, float):
+        return o if math.isfinite(o) else None
+    if isinstance(o, dict):
+        return {k: _sanitize(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_sanitize(v) for v in o]
+    return o
+
+
 @app.post("/predict")
 def predict(req: PredictReq):
-    p, rad = load_patient(req.patient_id)
+    try:
+        p, rad = load_patient(req.patient_id)
+    except Exception as e:
+        raise HTTPException(503, f"DB 연결 오류: {e}")
     if p is None:
         raise HTTPException(404, "환자를 찾을 수 없습니다.")
     if rad is None:
         raise HTTPException(409, "영상(라디오믹스)이 배정되지 않은 환자입니다.")
 
-    # 1) Causal Forest — 대비별 CATE + Bonferroni CI (왼쪽)
+    errors = []  # 모델별 부분 실패 기록 (하나 죽어도 나머지는 반환)
+
+    # 1) Causal Forest — 대비별 CATE + Bonferroni CI
     Xcf = causalforest_vector(p, rad)
     contrasts = []
-    for key, model in CF.items():
-        a, b = key.split("_vs_")
-        cate = float(model.effect(Xcf)[0])
-        lo, hi = model.effect_interval(Xcf, alpha=BONFERRONI_ALPHA)
-        lo, hi = float(lo[0]), float(hi[0])
-        contrasts.append({
-            "key": key, "a": int(a), "b": int(b),
-            "label": PAIR_LABELS.get(key, key),
-            "cate": cate, "ci_low": lo, "ci_high": hi,
-            "significant": bool(lo > 0 or hi < 0),
-        })
+    try:
+        for key, model in CF.items():
+            a, b = key.split("_vs_")
+            cate = float(model.effect(Xcf)[0])
+            lo, hi = model.effect_interval(Xcf, alpha=BONFERRONI_ALPHA)
+            lo, hi = float(lo[0]), float(hi[0])
+            contrasts.append({
+                "key": key, "a": int(a), "b": int(b), "label": PAIR_LABELS.get(key, key),
+                "cate": cate, "ci_low": lo, "ci_high": hi,
+                "significant": bool(lo > 0 or hi < 0),
+            })
+    except Exception as e:
+        contrasts = []
+        errors.append(f"causalforest: {e}")
 
-    # 2) XGBoost — 5년 사건(재발/사망) 위험확률 (오른쪽)
-    Xxgb = xgb_vector(p, rad)
-    prob_event = float(XGB_MODEL.predict_proba(Xxgb)[0, 1])
+    # 2) XGBoost — 5년 사건 위험확률
+    try:
+        prob_event = float(XGB_MODEL.predict_proba(xgb_vector(p, rad))[0, 1])
+        if not math.isfinite(prob_event):
+            raise ValueError("비유한 확률")
+    except Exception as e:
+        prob_event = None
+        errors.append(f"xgb: {e}")
 
-    # 3) SHAP — 1_vs_2 대비 변수 기여도 (아래)
-    sv = SHAP_EXPLAINER.shap_values(Xcf)[0]
-    base = float(np.ravel(SHAP_EXPLAINER.expected_value)[0])
-    shap_list = sorted(
-        [{"feature": f, "feature_ko": FEATURE_KO.get(f, f),
-          "value": float(v), "x": float(Xcf[0, i])}
-         for i, (f, v) in enumerate(zip(SHAP_FEATURES, sv))],
-        key=lambda d: abs(d["value"]), reverse=True)
+    # 3) SHAP — 1_vs_2 변수 기여도
+    try:
+        sv = SHAP_EXPLAINER.shap_values(Xcf)[0]
+        base = float(np.ravel(SHAP_EXPLAINER.expected_value)[0])
+        shap_list = sorted(
+            [{"feature": f, "feature_ko": FEATURE_KO.get(f, f),
+              "value": float(v), "x": float(Xcf[0, i])}
+             for i, (f, v) in enumerate(zip(SHAP_FEATURES, sv))],
+            key=lambda d: abs(d["value"]), reverse=True)
+    except Exception as e:
+        base, shap_list = 0.0, []
+        errors.append(f"shap: {e}")
 
-    # 4) 권고 합성 (진료화면 배너용) — 병기·위험 가이드라인 + 인과모델 근거
-    recommendation = synthesize_recommendation(
-        contrasts, prob_event, p.get("treatmethod"),
-        p.get("cancerimaging_t"), p.get("cancerimaging_n"))
+    # 4) 권고 합성 (xgb 실패 시 위험 0으로 보수적 처리하되 degraded 표시)
+    rec = synthesize_recommendation(
+        contrasts, prob_event if prob_event is not None else 0.0,
+        p.get("treatmethod"), p.get("cancerimaging_t"), p.get("cancerimaging_n"))
+    if prob_event is None:
+        rec["caveats"] = ["⚠ 예후(XGB) 모델 오류 — 위험도 미반영"] + rec["caveats"]
 
-    # 5) 유사 환자 코호트 비교 (실제 재발률)
-    cohort = cohort_stats(p.get("cancerimaging_t"), p.get("cancerimaging_n"),
-                          recommendation["suggested_arm"])
+    # 5) 유사 환자 코호트 (DB 오류 시 None)
+    try:
+        cohort = cohort_stats(p.get("cancerimaging_t"), p.get("cancerimaging_n"), rec["suggested_arm"])
+    except Exception as e:
+        cohort = None
+        errors.append(f"cohort: {e}")
 
-    return {
+    return _sanitize({
         "patient_id": req.patient_id,
         "image_case": rad.get("__image_case"),
         "bonferroni_alpha": BONFERRONI_ALPHA,
-        "recommendation": recommendation,
+        "recommendation": rec,
         "cohort": cohort,
         "contrasts": contrasts,
         "xgb": {"prob_event_5yr": prob_event},
         "shap": {"base_value": base, "contributions": shap_list,
                  "contrast": "1_vs_2", "contrast_label": PAIR_LABELS["1_vs_2"]},
-    }
+        "errors": errors,
+    })
 
 
 @app.get("/health")

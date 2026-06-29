@@ -19,6 +19,7 @@ export default function AiRecommendationBanner({ patient, openModal, onAdopt }) 
   const [decision, setDecision] = useState(null)
   const [mode, setMode] = useState('idle')
   const [reason, setReason] = useState('')
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
     let alive = true
@@ -26,7 +27,7 @@ export default function AiRecommendationBanner({ patient, openModal, onAdopt }) 
     predictPatient(patient.id).then((d) => alive && setPred(d)).catch((e) => alive && setError(e.message))
     fetchLatestDecision(patient.id).then((d) => alive && setDecision(d.decision)).catch(() => {})
     return () => { alive = false }
-  }, [patient.id])
+  }, [patient.id, reload])
 
   const rec = pred?.recommendation
   const submit = async (action) => {
@@ -50,7 +51,14 @@ export default function AiRecommendationBanner({ patient, openModal, onAdopt }) 
   const Shell = ({ children, style }) => (
     <div className="emr-panel m-1.5 mb-0 min-h-[150px] border-l-4 p-2.5" style={style}>{children}</div>
   )
-  if (error) return <Shell style={{ borderLeftColor: '#b3303d' }}><p className="text-[15px] text-danger">AI 권고 실패: {error}</p></Shell>
+  if (error) return (
+    <Shell style={{ borderLeftColor: '#b3303d' }}>
+      <p className="text-[15px] font-semibold text-danger">AI 권고를 불러오지 못했습니다</p>
+      <p className="mt-1 text-[13px] text-ink-soft">{error}</p>
+      <button type="button" onClick={() => setReload((n) => n + 1)}
+        className="emr-btn-primary emr-btn mt-2">재시도</button>
+    </Shell>
+  )
   if (!rec) return <Skeleton />
 
   const tone = RISK_TONE[rec.risk_tier] ?? RISK_TONE.중등도
@@ -65,8 +73,11 @@ export default function AiRecommendationBanner({ patient, openModal, onAdopt }) 
   const sexKo = patient.sex === 'M' ? '남' : patient.sex === 'F' ? '여' : ''
   const site = String(patient.location).split(' ')[0]
   const stageTxt = `${patient.stage.t}${patient.stage.n}${patient.stage.m}`
-  const story = `${patient.age}세 ${sexKo} · ${site} ${stageTxt} → ${rec.suggested_arm_label ?? '표준치료'} 권고. 5년 재발·사망 위험 ${(rec.risk_prob * 100).toFixed(0)}%(${rec.risk_tier}).`
+  const riskKnown = rec.risk_prob != null
+  const riskPct = riskKnown ? (rec.risk_prob * 100).toFixed(0) : '—'
+  const story = `${patient.age}세 ${sexKo} · ${site} ${stageTxt} → ${rec.suggested_arm_label ?? '표준치료'} 권고. 5년 재발·사망 위험 ${riskPct}${riskKnown ? '%' : ''}(${rec.risk_tier}).`
   const co = pred.cohort
+  const partial = pred.errors?.length > 0
 
   return (
     <Shell style={{ borderLeftColor: verdict.fg, background: '#fbfdff' }}>
@@ -95,6 +106,13 @@ export default function AiRecommendationBanner({ patient, openModal, onAdopt }) 
 
       {/* #3+#4 위험 스펙트럼 바 */}
       <RiskSpectrum prob={rec.risk_prob} tier={rec.risk_tier} onClick={() => openModal('evidence')} />
+
+      {/* 부분 모델 오류 (graceful degradation) */}
+      {partial && (
+        <p className="mt-1.5 rounded border border-[#f3dcae] bg-[#fdf2e0] px-2 py-1 text-[12px] text-[#b8730a]">
+          ⚠ 일부 모델 결과 누락: {pred.errors.join(' · ')} — 표시된 항목만 신뢰하세요.
+        </p>
+      )}
 
       {/* #1 코호트 비교 */}
       {co && (
@@ -162,20 +180,21 @@ export default function AiRecommendationBanner({ patient, openModal, onAdopt }) 
 
 // #3+#4 위험 스펙트럼: 0~100% 연속값 + 저/중/고 구역 + 환자 위치 마커
 function RiskSpectrum({ prob, tier, onClick }) {
-  const pct = Math.max(0, Math.min(100, prob * 100))
+  const known = prob != null && Number.isFinite(prob)
+  const pct = known ? Math.max(0, Math.min(100, prob * 100)) : 0
   return (
     <button type="button" onClick={onClick} className="mt-2 block w-full text-left">
       <div className="mb-0.5 flex items-center justify-between text-[12px] text-ink-soft">
         <span>5년 재발·사망 위험 스펙트럼</span>
-        <span className="tabular font-semibold text-ink">{pct.toFixed(0)}% · {tier}</span>
+        <span className="tabular font-semibold text-ink">{known ? `${pct.toFixed(0)}%` : '—'} · {tier}</span>
       </div>
       <div className="relative h-3 w-full overflow-hidden rounded-full"
         style={{ background: 'linear-gradient(90deg,#cdebd8 0%,#cdebd8 33%,#fbe7c4 33%,#fbe7c4 66%,#f4c9cf 66%,#f4c9cf 100%)' }}>
-        {/* 임계 기준선 33/66 */}
         <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '33%' }} />
         <div className="absolute top-0 h-full w-px bg-white/70" style={{ left: '66%' }} />
-        {/* 환자 마커 */}
-        <div className="absolute top-1/2 h-5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-[#1e2733]" style={{ left: `${pct}%` }} />
+        {known && (
+          <div className="absolute top-1/2 h-5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-[#1e2733]" style={{ left: `${pct}%` }} />
+        )}
       </div>
       <div className="mt-0.5 flex justify-between text-[10px] text-ink-soft"><span>저 0–33%</span><span>중 33–66%</span><span>고 66–100%</span></div>
     </button>

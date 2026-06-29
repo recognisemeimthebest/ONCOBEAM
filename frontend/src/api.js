@@ -1,92 +1,69 @@
-// 백엔드(CDSS FastAPI) 연동 클라이언트.
-// 환자 데이터는 PostgreSQL DB에서 가져온다. 모든 환자 API는 JWT 로그인이 필요하다.
+// 백엔드(CDSS FastAPI) + 실모델 서비스 연동 클라이언트.
+// 모든 환자 API는 JWT 로그인 필요. 네트워크/타임아웃/HTTP 오류를 구분해 친절히 보고한다.
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000'
+const MODEL_BASE = import.meta.env.VITE_MODEL_BASE ?? 'http://localhost:8011'
 const TOKEN_KEY = 'cdss_token'
+const TIMEOUT_MS = 12000
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY)
 export const setToken = (t) => localStorage.setItem(TOKEN_KEY, t)
 export const clearToken = () => localStorage.removeItem(TOKEN_KEY)
 
-// 로그인 — OAuth2 password 폼 형식으로 토큰을 받는다.
-export async function login(username, password) {
-  const body = new URLSearchParams({ username, password })
-  const res = await fetch(`${API_BASE}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
-  if (!res.ok) {
-    const msg = await res.json().catch(() => null)
-    throw new Error(msg?.detail ?? '로그인에 실패했습니다.')
+// 세션 만료(401) 발생 시 앱이 로그인 화면으로 돌아가도록 알림.
+let onAuthExpired = null
+export const setAuthExpiredHandler = (fn) => { onAuthExpired = fn }
+
+// 공통 요청 — 타임아웃(AbortController) + 오류 분류.
+async function request(base, path, { method = 'GET', body, form, auth = false, label = '서버' } = {}) {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
+  const headers = {}
+  if (auth) headers.Authorization = `Bearer ${getToken()}`
+  let payload
+  if (form) { headers['Content-Type'] = 'application/x-www-form-urlencoded'; payload = form }
+  else if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body) }
+
+  let res
+  try {
+    res = await fetch(`${base}${path}`, { method, headers, body: payload, signal: ctrl.signal })
+  } catch (e) {
+    clearTimeout(timer)
+    if (e.name === 'AbortError') throw new Error(`${label} 응답 시간 초과 — 서버 상태를 확인하세요.`)
+    throw new Error(`${label}에 연결할 수 없습니다 (${base}). 서비스가 실행 중인지 확인하세요.`)
   }
-  const data = await res.json()
+  clearTimeout(timer)
+
+  if (res.status === 401) {
+    clearToken()
+    onAuthExpired?.()
+    throw new Error('세션이 만료되었습니다. 다시 로그인하세요.')
+  }
+  if (!res.ok) {
+    const m = await res.json().catch(() => null)
+    throw new Error(m?.detail ?? `${label} 요청 실패 (${res.status})`)
+  }
+  return res.json().catch(() => null)
+}
+
+// ── 인증 ─────────────────────────────────────────────────────────────────────
+export async function login(username, password) {
+  const data = await request(API_BASE, '/api/auth/login', {
+    method: 'POST', form: new URLSearchParams({ username, password }), label: '로그인 서버',
+  })
   setToken(data.access_token)
   return data.access_token
 }
+export const fetchMe = () => request(API_BASE, '/api/auth/me', { auth: true, label: '백엔드 서버' })
 
-// 인증이 필요한 GET 요청 공통 래퍼.
-async function authGet(path) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${getToken()}` },
-  })
-  if (res.status === 401) {
-    clearToken()
-    throw new Error('세션이 만료되었습니다. 다시 로그인하세요.')
-  }
-  if (!res.ok) throw new Error(`요청 실패 (${res.status})`)
-  return res.json()
-}
-
-// 인증이 필요한 POST 요청 공통 래퍼.
-async function authPost(path, body) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (res.status === 401) {
-    clearToken()
-    throw new Error('세션이 만료되었습니다. 다시 로그인하세요.')
-  }
-  if (!res.ok) {
-    const m = await res.json().catch(() => null)
-    throw new Error(m?.detail ?? `요청 실패 (${res.status})`)
-  }
-  return res.json()
-}
-
-// DB의 전체 환자(38컬럼 임상 스키마) 목록.
-export const fetchPatients = () => authGet('/api/patients')
-
-// 현재 로그인 사용자 (토큰 유효성 확인용).
-export const fetchMe = () => authGet('/api/auth/me')
-
-// AI 권고 수락/기각 결정 기록 (closed-loop, audit_log).
-export const recordDecision = (payload) => authPost('/api/cdss/decision', payload)
-// 환자의 가장 최근 결정 조회.
+// ── 환자/결정 (백엔드 8000) ──────────────────────────────────────────────────
+export const fetchPatients = () => request(API_BASE, '/api/patients', { auth: true, label: '백엔드 서버' })
+export const recordDecision = (payload) =>
+  request(API_BASE, '/api/cdss/decision', { method: 'POST', body: payload, auth: true, label: '백엔드 서버' })
 export const fetchLatestDecision = (patientId) =>
-  authGet(`/api/cdss/decision/${encodeURIComponent(patientId)}`)
+  request(API_BASE, `/api/cdss/decision/${encodeURIComponent(patientId)}`, { auth: true, label: '백엔드 서버' })
 
-// ── 실모델 서비스 (causalforest / xgb / shap) ────────────────────────────────
-const MODEL_BASE = import.meta.env.VITE_MODEL_BASE ?? 'http://localhost:8011'
-
-// 영상(라디오믹스)이 배정돼 EMR에 노출할 활성 환자 목록.
-export async function fetchActivePatients() {
-  const res = await fetch(`${MODEL_BASE}/active_patients`)
-  if (!res.ok) throw new Error('활성 환자 조회 실패')
-  return res.json() // { patient_ids: [...], items: [{patient_id, image_case}] }
-}
-
-// 환자별 실모델 예측 (CATE 4대비 + xgb 위험 + SHAP).
-export async function predictPatient(patientId) {
-  const res = await fetch(`${MODEL_BASE}/predict`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ patient_id: patientId }),
-  })
-  if (!res.ok) {
-    const m = await res.json().catch(() => null)
-    throw new Error(m?.detail ?? `예측 실패 (${res.status})`)
-  }
-  return res.json()
-}
+// ── 실모델 서비스 (8011) ─────────────────────────────────────────────────────
+export const fetchActivePatients = () =>
+  request(MODEL_BASE, '/active_patients', { label: 'AI 모델 서비스' })
+export const predictPatient = (patientId) =>
+  request(MODEL_BASE, '/predict', { method: 'POST', body: { patient_id: patientId }, label: 'AI 모델 서비스' })

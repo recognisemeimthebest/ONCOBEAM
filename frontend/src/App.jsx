@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchPatients, fetchActivePatients, predictPatient, fetchMe, getToken, clearToken } from './api'
+import { fetchPatients, fetchActivePatients, predictPatient, fetchMe, setAuthExpiredHandler, getToken, clearToken } from './api'
 import { mapPatient } from './lib/mapPatient'
 import { matchAll } from './search'
 import Login from './components/Login'
@@ -112,6 +112,9 @@ export default function App() {
     setLoadState('idle')
   }
 
+  // 세션 만료(401) 시 자동으로 로그인 화면 복귀
+  useEffect(() => { setAuthExpiredHandler(() => { setAuthed(false); setLoadState('idle') }) }, [])
+
   if (!authed) {
     return <Login onSuccess={() => setAuthed(true)} />
   }
@@ -149,8 +152,21 @@ export default function App() {
 
       <div className="flex min-h-0 flex-1">
         <PatientQueue patients={results} patientId={patientId} onSelect={setPatientId} triage={triage} />
-        {patient && <PatientSummary patient={patient} openModal={openModal} triage={triage[patient.id]} />}
-        {patient && <ClinicalNote patient={patient} openModal={openModal} onAdoptPlan={adoptPlan} />}
+        {patient ? (
+          <>
+            <PatientSummary patient={patient} openModal={openModal} triage={triage[patient.id]} />
+            <ClinicalNote patient={patient} openModal={openModal} onAdoptPlan={adoptPlan} />
+          </>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-ink-soft">
+            <p className="text-[18px] font-semibold">표시할 환자가 없습니다</p>
+            <p className="text-[15px]">
+              {patients.length === 0
+                ? '영상(라디오믹스)이 배정된 환자가 없습니다. model_service의 seed_radiomics.py를 확인하세요.'
+                : '좌측 목록에서 환자를 선택하거나 필터를 해제하세요.'}
+            </p>
+          </div>
+        )}
       </div>
 
       {patient && <StatusBar patient={patient} count={results.length} />}
