@@ -176,6 +176,48 @@ def load_patient(pid):
     return (dict(row) if row else None), (rad or None)
 
 
+def cohort_stats(t_stage, n_stage, suggested_arm):
+    """유사 병기 환자군의 실제 재발률 (DB relapse). '나와 비슷한 환자' 신뢰 근거.
+
+    유사 = 같은 진행도 버킷(국소진행 vs 조기). relapse 1=없음 / 2·3=재발.
+    권고 치료군 vs 그 외의 관측 재발률을 비교한다.
+    """
+    T, N = _stage_ord(t_stage), _stage_ord(n_stage)
+    target_adv = (T is not None and T >= 3) or (N is not None and N >= 1)
+    with engine.connect() as c:
+        rows = c.execute(text(
+            "select treatmethod, cancerimaging_t, cancerimaging_n, relapse "
+            "from patients where relapse is not null")).all()
+
+    def is_adv(t, n):
+        to, no = _stage_ord(t), _stage_ord(n)
+        return (to is not None and to >= 3) or (no is not None and no >= 1)
+
+    peers = [r for r in rows if is_adv(r[1], r[2]) == target_adv]
+    def rate(group):
+        g = [r for r in group if r[3] in (1, 2, 3)]
+        if not g:
+            return None, 0
+        recur = sum(1 for r in g if r[3] in (2, 3))
+        return round(recur / len(g) * 100, 1), len(g)
+
+    arm_grp = [r for r in peers if r[0] == suggested_arm]
+    other_grp = [r for r in peers if r[0] != suggested_arm]
+    arm_rate, arm_n = rate(arm_grp)
+    other_rate, other_n = rate(other_grp)
+    all_rate, all_n = rate(peers)
+    return {
+        "bucket": "국소진행(T3-4 또는 N+)" if target_adv else "조기(T1-2 N0)",
+        "n_total": all_n,
+        "recur_overall": all_rate,
+        "suggested_arm": suggested_arm,
+        "suggested_arm_label": ARM_LABELS.get(suggested_arm),
+        "recur_suggested": arm_rate, "n_suggested": arm_n,
+        "recur_other": other_rate, "n_other": other_n,
+        "small_sample": arm_n < 5,
+    }
+
+
 # ── 권고 합성 (임상 가이드라인 + 위험 + 인과모델 근거) ────────────────────────
 def _stage_ord(v):
     if not v:
@@ -312,11 +354,16 @@ def predict(req: PredictReq):
         contrasts, prob_event, p.get("treatmethod"),
         p.get("cancerimaging_t"), p.get("cancerimaging_n"))
 
+    # 5) 유사 환자 코호트 비교 (실제 재발률)
+    cohort = cohort_stats(p.get("cancerimaging_t"), p.get("cancerimaging_n"),
+                          recommendation["suggested_arm"])
+
     return {
         "patient_id": req.patient_id,
         "image_case": rad.get("__image_case"),
         "bonferroni_alpha": BONFERRONI_ALPHA,
         "recommendation": recommendation,
+        "cohort": cohort,
         "contrasts": contrasts,
         "xgb": {"prob_event_5yr": prob_event},
         "shap": {"base_value": base, "contributions": shap_list,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchPatients, fetchActivePatients, getToken, clearToken } from './api'
+import { fetchPatients, fetchActivePatients, predictPatient, getToken, clearToken } from './api'
 import { mapPatient } from './lib/mapPatient'
 import { matchAll } from './search'
 import Login from './components/Login'
@@ -23,6 +23,7 @@ export default function App() {
   const [patientId, setPatientId] = useState(null)
   const [tab, setTab] = useState('진료실')
   const [modal, setModal] = useState(null) // { type, payload }
+  const [triage, setTriage] = useState({}) // id -> { risk_tier, risk_prob, diverges, suggested }
 
   // 로그인되면 DB에서 환자 목록을 불러와 UI 형태로 매핑한다.
   useEffect(() => {
@@ -53,6 +54,33 @@ export default function App() {
       alive = false
     }
   }, [authed])
+
+  // #5 트리아지 — 활성 환자 전원 권고 prefetch (목록 위험뱃지/정렬용). 환자ID 목록이 바뀔 때만.
+  const pidKey = patients.map((p) => p.id).join(',')
+  useEffect(() => {
+    if (loadState !== 'ready' || !patients.length) return
+    let alive = true
+    Promise.allSettled(patients.map((p) =>
+      predictPatient(p.id).then((d) => [p.id, {
+        risk_tier: d.recommendation.risk_tier,
+        risk_prob: d.recommendation.risk_prob,
+        diverges: d.recommendation.suggested_arm != null && d.recommendation.agrees_with_plan === false,
+        suggested: d.recommendation.suggested_arm_label,
+      }])
+    )).then((rs) => {
+      if (!alive) return
+      const m = {}
+      rs.forEach((r) => { if (r.status === 'fulfilled') { const [id, v] = r.value; m[id] = v } })
+      setTriage(m)
+    })
+    return () => { alive = false }
+  }, [loadState, pidKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // #6 권고 수락 → 치료계획에 반영 (오더 연계). DB는 그대로, 표시·트리아지 갱신.
+  const adoptPlan = (pid, arm) => {
+    setPatients((prev) => prev.map((p) => (p.id === pid ? { ...p, plan: { ...p.plan, treatment: arm } } : p)))
+    setTriage((prev) => (prev[pid] ? { ...prev, [pid]: { ...prev[pid], diverges: false } } : prev))
+  }
 
   const patient = patients.find((p) => p.id === patientId) ?? patients[0] ?? null
 
@@ -114,9 +142,9 @@ export default function App() {
       />
 
       <div className="flex min-h-0 flex-1">
-        <PatientQueue patients={results} patientId={patientId} onSelect={setPatientId} />
+        <PatientQueue patients={results} patientId={patientId} onSelect={setPatientId} triage={triage} />
         {patient && <PatientSummary patient={patient} openModal={openModal} />}
-        {patient && <ClinicalNote patient={patient} openModal={openModal} />}
+        {patient && <ClinicalNote patient={patient} openModal={openModal} onAdoptPlan={adoptPlan} />}
       </div>
 
       {patient && <StatusBar patient={patient} count={results.length} />}
@@ -130,6 +158,11 @@ export default function App() {
           onClose={closeModal}
         >
           <EvidencePopup patient={patient} />
+        </Modal>
+      )}
+      {modal?.type === 'method' && (
+        <Modal title="AI 방법론 · 모델 · 한계" subtitle="의료진 참고 (해석가능성/신뢰)" width={640} onClose={closeModal}>
+          <MethodologyContent />
         </Modal>
       )}
       {modal?.type === 'history' && (
@@ -151,6 +184,30 @@ export default function App() {
           />
         </Modal>
       )}
+    </div>
+  )
+}
+
+function MethodologyContent() {
+  const rows = [
+    ['권고 로직', '병기·5년위험 가이드라인(NCCN식)을 1차 근거로, 인과모델(CATE)·예후(XGB)·SHAP은 보조 근거로 제시'],
+    ['모듈1 (HTE)', 'causalforest_models.pkl — econml CausalForestDML, 4개 치료대비 CATE + Bonferroni 보정 CI'],
+    ['모듈2 (예후)', 'xgb_model.pkl — XGBoost 36피처(라디오믹스+임상), 5년 재발·사망 위험확률'],
+    ['설명(SHAP)', 'shap_explainer_1_vs_2.pkl — RandomForest TreeSHAP, 변수별 기여도'],
+    ['위험 임계', '저 <33% · 중 33–66% · 고 ≥66% (운영 컷오프 — 절대 기준 아님, 연속값 함께 참고)'],
+    ['코호트 비교', '동일 진행도(국소진행/조기) 환자군의 DB 실제 재발률(relapse) 관측치'],
+    ['한계', '라디오믹스 입력은 데모용 자리표시자(무작위) · 외부검증 전 · 의사결정 보조도구(SaMD)'],
+  ]
+  return (
+    <div className="space-y-2">
+      <table className="emr-table">
+        <tbody>
+          {rows.map(([k, v]) => (
+            <tr key={k}><th className="w-28 align-top">{k}</th><td className="leading-relaxed">{v}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="px-1 text-[12px] text-ink-soft">최종 판단과 책임은 의료인에게 있습니다. 권고는 환자별 병기·위험·유사환자 근거를 종합한 참고 정보입니다.</p>
     </div>
   )
 }

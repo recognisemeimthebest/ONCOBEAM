@@ -2,13 +2,17 @@ import { treatmentByCode } from '../data/mockData'
 import AiRecommendationBanner from './AiRecommendationBanner'
 
 // 중앙-우 진료기록 작성 — AI 권고 배너 / 보험·주상병 / 증상·소견 / 처방 / 완료
-export default function ClinicalNote({ patient, openModal }) {
+export default function ClinicalNote({ patient, openModal, onAdoptPlan }) {
   const plan = treatmentByCode(patient.plan.treatment)
 
   return (
     <section className="flex min-w-0 flex-1 flex-col overflow-auto bg-bg">
       {/* AI 권고 배너 — 상시 노출 (point-of-care) */}
-      <AiRecommendationBanner patient={patient} openModal={openModal} />
+      <AiRecommendationBanner
+        patient={patient}
+        openModal={openModal}
+        onAdopt={(arm) => onAdoptPlan?.(patient.id, arm)}
+      />
 
       {/* 작성 헤더 */}
       <div className="emr-panel m-1.5 mb-0">
