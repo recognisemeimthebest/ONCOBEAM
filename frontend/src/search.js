@@ -5,13 +5,14 @@ export const stageText = (p) => `${p.stage.t}${p.stage.n}${p.stage.m}`
 
 // 카테고리 노출 순서
 export const FIELD_ORDER = [
-  '환자번호', '생년월일', '성별', '부위', '병기', '치료법',
+  '이름', '환자번호', '생년월일', '성별', '부위', '병기', '치료법',
 ]
 
 // 환자 목록에서 동적 옵션(부위)을 도출해 카테고리 정의 생성
 export function fieldDefs(patients) {
   const locations = [...new Set(patients.map((p) => p.location))]
   return {
+    이름: { type: 'text', ph: '환자명 (예: 김OO)' },
     환자번호: { type: 'text', ph: '환자번호 (예: QIN-HEADNECK-01-0003)' },
     생년월일: { type: 'text', ph: '생년월 (예: 1937.01)' },
     성별: { type: 'enum', options: [{ v: 'M', t: '남 (M)' }, { v: 'F', t: '여 (F)' }] },
@@ -25,6 +26,7 @@ export function fieldDefs(patients) {
 export function matchOne(p, f) {
   const q = String(f.value).toLowerCase()
   switch (f.field) {
+    case '이름': return (p.name ?? '').toLowerCase().includes(q)
     case '환자번호': return p.id.toLowerCase().includes(q)
     case '생년월일': return p.birth.toLowerCase().includes(q)
     case '성별': return p.sex === f.value

@@ -46,10 +46,11 @@ export default function PatientQueue({ patients, patientId, onSelect, triage = {
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full"
                   style={{ background: t ? RISK_DOT[t.risk_tier] : '#5a6b80' }}
                   title={t ? `위험 ${(t.risk_prob * 100).toFixed(0)}% · ${t.risk_tier}` : '분석 중'} />
-                <span className="truncate text-[16px] font-bold text-white tabular">{p.id}</span>
+                <span className="text-[16px] font-bold text-white">{p.name}</span>
                 <span className="ml-auto shrink-0 rounded-sm bg-white/15 px-1 text-[14px] text-white/80 tabular">{p.sex}/{p.age}</span>
               </div>
-              <div className="mt-1 flex items-center gap-1.5">
+              <div className="mt-0.5 truncate text-[13px] text-white/55 tabular">{p.id}</div>
+              <div className="mt-0.5 flex items-center gap-1.5">
                 <span className="truncate text-[14px] text-white/55">{String(p.location).split(' ')[0]} {stageText(p)}</span>
                 {t?.diverges && (
                   <span className="ml-auto shrink-0 rounded-sm bg-[#e0a64a]/25 px-1 text-[12px] font-bold text-[#ffd699]">⚠ 재검토</span>

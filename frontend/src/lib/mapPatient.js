@@ -13,6 +13,9 @@ const VWIN_DAYS = 354
 const DAY = 86400000
 
 const LOCATION_BY_CODE = { 1: '직장', 2: '전립선', 3: '여성암', 4: '두경부', 9: '기타' }
+// 익명화 표시용 성씨(빈도 높은 순). 표시는 '성+OO' (예: 김OO).
+const SURNAMES = ['김', '이', '박', '최', '정', '강', '조', '윤', '장', '임',
+  '한', '오', '서', '신', '권', '황', '안', '송', '전', '홍']
 
 // 두경부 원발부위 → ICD-10 (대표코드). diagnosis 문자열 부분일치.
 const ICD_RULES = [
@@ -110,6 +113,7 @@ export function mapPatient(row) {
   return {
     id: row.patient_id,
     numericId: row.id,
+    name: `${SURNAMES[h % SURNAMES.length]}OO`,  // 익명화 표시명
     sex: row.sex ?? '-',
     age,
     birth,

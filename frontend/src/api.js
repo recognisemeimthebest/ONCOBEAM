@@ -61,6 +61,10 @@ export const recordDecision = (payload) =>
   request(API_BASE, '/api/cdss/decision', { method: 'POST', body: payload, auth: true, label: '백엔드 서버' })
 export const fetchLatestDecision = (patientId) =>
   request(API_BASE, `/api/cdss/decision/${encodeURIComponent(patientId)}`, { auth: true, label: '백엔드 서버' })
+// 결정 이력(감사 추적). patientId 주면 해당 환자만.
+export const fetchDecisions = (limit = 100, patientId) =>
+  request(API_BASE, `/api/cdss/decisions?limit=${limit}${patientId ? `&patient_id=${encodeURIComponent(patientId)}` : ''}`,
+    { auth: true, label: '백엔드 서버' })
 
 // ── 실모델 서비스 (8011) ─────────────────────────────────────────────────────
 export const fetchActivePatients = () =>

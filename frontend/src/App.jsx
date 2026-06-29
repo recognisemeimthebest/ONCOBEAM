@@ -13,6 +13,7 @@ import StatusBar from './components/StatusBar'
 import Modal from './components/Modal'
 import EvidencePopup from './components/popups/EvidencePopup'
 import CtViewer from './components/CtViewer'
+import AuditLogView from './components/AuditLogView'
 
 export default function App() {
   const [authed, setAuthed] = useState(() => !!getToken())
@@ -138,7 +139,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen min-w-[1100px] flex-col bg-bg text-ink">
-      <TitleBar onAdd={addFilter} patients={patients} results={results} onPick={setPatientId} onLogout={logout} doctor={doctor} />
+      <TitleBar onAdd={addFilter} patients={patients} results={results} onPick={setPatientId} onLogout={logout} doctor={doctor} onAudit={() => openModal('audit')} />
       <TabStrip tab={tab} onTab={setTab} />
       <FilterBar
         filters={filters}
@@ -173,7 +174,7 @@ export default function App() {
       {modal?.type === 'evidence' && patient && (
         <Modal
           title="AI 근거 상세 — 치료법 비교(HTE) + 예후예측(XGBoost)"
-          subtitle={patient.id}
+          subtitle={`${patient.name} · ${patient.id}`}
           width={880}
           onClose={closeModal}
         >
@@ -181,8 +182,13 @@ export default function App() {
         </Modal>
       )}
       {modal?.type === 'ct' && patient && (
-        <Modal title="CT 영상 뷰어" subtitle={patient.id} width={900} onClose={closeModal}>
+        <Modal title="CT 영상 뷰어" subtitle={`${patient.name} · ${patient.id}`} width={900} onClose={closeModal}>
           <CtViewer patient={patient} />
+        </Modal>
+      )}
+      {modal?.type === 'audit' && (
+        <Modal title="감사 로그 — AI 권고 결정 이력" subtitle="CDSS 책임 추적 (audit_log)" width={860} onClose={closeModal}>
+          <AuditLogView nameById={Object.fromEntries(patients.map((p) => [p.id, p.name]))} />
         </Modal>
       )}
       {modal?.type === 'method' && (

@@ -20,10 +20,10 @@ export default function PatientSummary({ patient, openModal, triage }) {
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <span className="text-[20px] font-bold tabular">{patient.id}</span>
+              <span className="text-[20px] font-bold">{patient.name}</span>
               <span className="text-[15px] text-ink-soft tabular">{patient.sex}/{patient.age}</span>
             </div>
-            <div className="text-[15px] text-ink-soft tabular">{patient.birth}</div>
+            <div className="text-[15px] text-ink-soft tabular">{patient.id} · {patient.birth}</div>
           </div>
           <button type="button" onClick={() => openModal('ct')}
             className="shrink-0 self-start rounded border border-line bg-panel px-2 py-1 text-[14px] font-semibold text-accent hover:bg-[#eaf2fd]">

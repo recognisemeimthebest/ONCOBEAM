@@ -100,6 +100,33 @@ def record_decision(
     }
 
 
+@router.get("/decisions")
+def list_decisions(
+    limit: int = 100,
+    patient_id: str | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """AI 권고 수락/기각 결정 이력 (감사 추적). patient_id 주면 해당 환자만."""
+    q = db.query(AuditLog).filter(AuditLog.action == "cdss_decision")
+    if patient_id:
+        q = q.filter(AuditLog.resource == f"patient:{patient_id}")
+    rows = q.order_by(AuditLog.created_at.desc()).limit(min(limit, 500)).all()
+    items = []
+    for r in rows:
+        d = r.detail or {}
+        items.append({
+            "id": r.id, "username": r.username, "created_at": r.created_at,
+            "patient_id": (r.resource or "").replace("patient:", ""),
+            "action": d.get("action"),
+            "recommended_label": d.get("recommended_label"),
+            "chosen_label": d.get("chosen_label"),
+            "reason": d.get("reason"),
+            "risk_tier": d.get("risk_tier"),
+        })
+    return {"items": items, "count": len(items)}
+
+
 @router.get("/decision/{patient_id}")
 def latest_decision(
     patient_id: str,

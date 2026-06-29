@@ -8,8 +8,8 @@ const nowStr = () => {
   return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} (${WEEKDAY[d.getDay()]}) ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-export default function TitleBar({ onAdd, patients, results, onPick, onLogout, doctor }) {
-  const [field, setField] = useState('환자번호')
+export default function TitleBar({ onAdd, patients, results, onPick, onLogout, doctor, onAudit }) {
+  const [field, setField] = useState('이름')
   const [draft, setDraft] = useState('')
   const [open, setOpen] = useState(false)
 
@@ -131,6 +131,7 @@ export default function TitleBar({ onAdd, patients, results, onPick, onLogout, d
                 onClick={() => pick(p.id)}
                 className="flex w-full items-center gap-2 border-b border-line-soft px-2 py-1.5 text-left hover:bg-[#eaf2fd]"
               >
+                <span className="w-14 shrink-0 font-bold text-ink">{p.name}</span>
                 <span className="w-44 shrink-0 font-semibold tabular text-accent">{p.id}</span>
                 <span className="w-20 shrink-0 text-[15px] tabular text-ink-soft">{p.birth}</span>
                 <span className="w-10 shrink-0 text-[15px] text-ink-soft">
@@ -154,6 +155,8 @@ export default function TitleBar({ onAdd, patients, results, onPick, onLogout, d
           진료의 <b className="font-semibold">{doctor ?? '—'}</b>
         </span>
         <div className="flex items-center gap-1.5 text-[18px]">
+          <button type="button" onClick={onAudit} title="감사 로그 (결정 이력)"
+            className="rounded-sm bg-white/15 px-2 py-0.5 text-[14px] hover:bg-white/25">📋 감사로그</button>
           <button type="button" className="hover:opacity-80" title="알림">🔔</button>
           <button type="button" className="hover:opacity-80" title="설정">⚙️</button>
           <button
