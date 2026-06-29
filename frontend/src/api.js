@@ -37,11 +37,35 @@ async function authGet(path) {
   return res.json()
 }
 
+// 인증이 필요한 POST 요청 공통 래퍼.
+async function authPost(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (res.status === 401) {
+    clearToken()
+    throw new Error('세션이 만료되었습니다. 다시 로그인하세요.')
+  }
+  if (!res.ok) {
+    const m = await res.json().catch(() => null)
+    throw new Error(m?.detail ?? `요청 실패 (${res.status})`)
+  }
+  return res.json()
+}
+
 // DB의 전체 환자(38컬럼 임상 스키마) 목록.
 export const fetchPatients = () => authGet('/api/patients')
 
 // 현재 로그인 사용자 (토큰 유효성 확인용).
 export const fetchMe = () => authGet('/api/auth/me')
+
+// AI 권고 수락/기각 결정 기록 (closed-loop, audit_log).
+export const recordDecision = (payload) => authPost('/api/cdss/decision', payload)
+// 환자의 가장 최근 결정 조회.
+export const fetchLatestDecision = (patientId) =>
+  authGet(`/api/cdss/decision/${encodeURIComponent(patientId)}`)
 
 // ── 실모델 서비스 (causalforest / xgb / shap) ────────────────────────────────
 const MODEL_BASE = import.meta.env.VITE_MODEL_BASE ?? 'http://localhost:8011'

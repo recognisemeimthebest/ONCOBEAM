@@ -66,3 +66,61 @@ def predict_prognosis(
     result = prognosis.predict_prognosis(features)
     _log_prediction(db, user, "prognosis", req, features, result)
     return result
+
+
+# ── AI 권고 수락/기각 (closed-loop + 감사기록) ───────────────────────────────
+@router.post("/decision")
+def record_decision(
+    req: schemas.DecisionRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """의료인이 AI 권고를 수락/기각한 결정을 audit_log 에 남긴다.
+
+    EMR 인증 감사기준: 사용자·일시·수행업무·사유. 기각은 사유 필수(식약처: 최종 책임 의료인).
+    """
+    if req.action not in ("accept", "override"):
+        raise HTTPException(status_code=400, detail="action 은 accept/override 만 허용합니다.")
+    if req.action == "override" and not (req.reason and req.reason.strip()):
+        raise HTTPException(status_code=400, detail="기각(override) 시 사유 입력은 필수입니다.")
+
+    log = AuditLog(
+        username=user.username,
+        action="cdss_decision",
+        resource=f"patient:{req.patient_id}",
+        detail=req.model_dump(),
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    return {
+        "id": log.id, "username": log.username, "action": req.action,
+        "patient_id": req.patient_id, "reason": req.reason,
+        "created_at": log.created_at,
+    }
+
+
+@router.get("/decision/{patient_id}")
+def latest_decision(
+    patient_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """해당 환자의 가장 최근 결정(있으면) — 배너에 '결정됨' 표시용."""
+    log = (
+        db.query(AuditLog)
+        .filter(AuditLog.action == "cdss_decision",
+                AuditLog.resource == f"patient:{patient_id}")
+        .order_by(AuditLog.created_at.desc())
+        .first()
+    )
+    if not log:
+        return {"decision": None}
+    d = log.detail or {}
+    return {"decision": {
+        "id": log.id, "username": log.username,
+        "action": d.get("action"), "reason": d.get("reason"),
+        "chosen_label": d.get("chosen_label"),
+        "recommended_label": d.get("recommended_label"),
+        "created_at": log.created_at,
+    }}
