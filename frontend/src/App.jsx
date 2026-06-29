@@ -84,7 +84,7 @@ export default function App() {
 
   if (loadState === 'loading' || loadState === 'idle') {
     return (
-      <div className="flex h-screen items-center justify-center bg-bg text-[13px] text-ink-soft">
+      <div className="flex h-screen items-center justify-center bg-bg text-[18px] text-ink-soft">
         환자 데이터를 불러오는 중…
       </div>
     )
@@ -93,7 +93,7 @@ export default function App() {
   if (loadState === 'error') {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-bg text-ink">
-        <p className="text-[13px] text-danger">불러오기 실패: {loadError}</p>
+        <p className="text-[18px] text-danger">불러오기 실패: {loadError}</p>
         <button type="button" className="emr-btn-primary emr-btn" onClick={logout}>
           로그인 화면으로
         </button>
@@ -134,7 +134,7 @@ export default function App() {
       )}
       {modal?.type === 'history' && (
         <Modal title="진료기록 상세" subtitle={modal.payload.date} width={560} onClose={closeModal}>
-          <div className="emr-panel p-3 text-[12px] leading-relaxed">{modal.payload.summary}</div>
+          <div className="emr-panel p-3 text-[16px] leading-relaxed">{modal.payload.summary}</div>
         </Modal>
       )}
       {modal?.type === 'rx' && (

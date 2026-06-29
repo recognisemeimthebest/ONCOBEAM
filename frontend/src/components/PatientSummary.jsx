@@ -6,21 +6,21 @@ export default function PatientSummary({ patient, openModal }) {
   const v = patient.vitals
 
   return (
-    <section className="flex w-[330px] shrink-0 flex-col overflow-auto border-r border-line bg-bg">
+    <section className="flex w-[400px] shrink-0 flex-col overflow-auto border-r border-line bg-bg">
       {/* 환자 헤더 */}
       <div className="emr-panel m-1.5 mb-0">
         <div className="flex items-center gap-2 border-b border-line-soft px-2.5 py-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-headbar text-[15px]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-headbar text-[20px]">
             {patient.sex === 'M' ? '👨' : '👩'}
           </span>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="text-[15px] font-bold tabular">{patient.id}</span>
-              <span className="text-[11px] text-ink-soft tabular">
+              <span className="text-[20px] font-bold tabular">{patient.id}</span>
+              <span className="text-[15px] text-ink-soft tabular">
                 {patient.sex}/{patient.age}
               </span>
             </div>
-            <div className="text-[11px] text-ink-soft tabular">{patient.birth}</div>
+            <div className="text-[15px] text-ink-soft tabular">{patient.birth}</div>
           </div>
         </div>
         {/* 액션 아이콘 줄 */}
@@ -29,7 +29,7 @@ export default function PatientSummary({ patient, openModal }) {
             <button
               key={i}
               type="button"
-              className="flex h-6 w-6 items-center justify-center rounded border border-line bg-panel text-[12px] hover:bg-[#eaf2fd]"
+              className="flex h-6 w-6 items-center justify-center rounded border border-line bg-panel text-[16px] hover:bg-[#eaf2fd]"
             >
               {a}
             </button>
@@ -129,7 +129,7 @@ export default function PatientSummary({ patient, openModal }) {
             ))}
           </tbody>
         </table>
-        <div className="flex items-center justify-end gap-4 border-t border-line-soft px-2 py-1.5 text-[11px]">
+        <div className="flex items-center justify-end gap-4 border-t border-line-soft px-2 py-1.5 text-[15px]">
           <span className="text-ink-soft">
             청구액 <b className="tabular text-ink">14,610</b>
           </span>
@@ -147,7 +147,7 @@ function Panel({ title, hint, children }) {
     <div className="emr-panel m-1.5 mb-0">
       <div className="emr-head">
         <span>{title}</span>
-        {hint && <span className="ml-auto text-[10px] font-normal text-accent">{hint}</span>}
+        {hint && <span className="ml-auto text-[14px] font-normal text-accent">{hint}</span>}
       </div>
       {children}
     </div>

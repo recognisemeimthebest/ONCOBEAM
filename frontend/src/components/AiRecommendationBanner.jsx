@@ -63,14 +63,14 @@ export default function AiRecommendationBanner({ patient, openModal }) {
 
   if (error) {
     return (
-      <div className="emr-panel m-1.5 mb-0 border-l-4 border-l-[#b3303d] p-2 text-[11px] text-danger">
+      <div className="emr-panel m-1.5 mb-0 border-l-4 border-l-[#b3303d] p-2 text-[15px] text-danger">
         AI 권고 처리 실패: {error}
       </div>
     )
   }
   if (!rec) {
     return (
-      <div className="emr-panel m-1.5 mb-0 p-2.5 text-[11.5px] text-ink-soft">⏳ AI 권고 합성 중…</div>
+      <div className="emr-panel m-1.5 mb-0 p-2.5 text-[16px] text-ink-soft">⏳ AI 권고 합성 중…</div>
     )
   }
 
@@ -81,20 +81,20 @@ export default function AiRecommendationBanner({ patient, openModal }) {
     <div className="emr-panel m-1.5 mb-0 border-l-4 p-2.5" style={{ borderLeftColor: tone.dot, background: '#fbfdff' }}>
       {/* 헤드라인 */}
       <div className="flex items-start gap-2">
-        <span className="mt-0.5 inline-flex h-5 shrink-0 items-center gap-1 rounded px-1.5 text-[10.5px] font-bold"
+        <span className="mt-0.5 inline-flex h-5 shrink-0 items-center gap-1 rounded px-1.5 text-[14px] font-bold"
           style={{ background: tone.bg, color: tone.fg }}>
           <span className="h-2 w-2 rounded-full" style={{ background: tone.dot }} />
           AI 의사결정 지원
         </span>
-        <span className="text-[13px] font-bold leading-tight text-ink">{rec.headline}</span>
+        <span className="text-[18px] font-bold leading-tight text-ink">{rec.headline}</span>
         <button type="button" onClick={() => openModal('evidence')}
-          className="ml-auto shrink-0 text-[11px] font-semibold text-accent hover:underline">
+          className="ml-auto shrink-0 text-[15px] font-semibold text-accent hover:underline">
           근거 상세 ▸
         </button>
       </div>
 
       {/* 칩 줄 */}
-      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10.5px]">
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[14px]">
         <Chip label="현재 계획" value={rec.current_arm_label ?? '—'} />
         {rec.suggested_arm != null && (
           <Chip label="AI 권고" value={rec.suggested_arm_label} tone={diverges ? 'warn' : 'good'} />
@@ -117,7 +117,7 @@ export default function AiRecommendationBanner({ patient, openModal }) {
       {rec.rationale?.length > 0 && (
         <ul className="mt-1.5 space-y-0.5">
           {rec.rationale.slice(0, 3).map((r, i) => (
-            <li key={i} className="flex gap-1.5 text-[11px] text-ink">
+            <li key={i} className="flex gap-1.5 text-[15px] text-ink">
               <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-ink-soft" />{r}
             </li>
           ))}
@@ -126,7 +126,7 @@ export default function AiRecommendationBanner({ patient, openModal }) {
 
       {/* 면책 */}
       {rec.caveats?.length > 0 && (
-        <p className="mt-1.5 flex gap-1 text-[10px] leading-relaxed text-ink-soft">
+        <p className="mt-1.5 flex gap-1 text-[14px] leading-relaxed text-ink-soft">
           <span>⚠️</span><span>{rec.caveats.join(' · ')}</span>
         </p>
       )}
@@ -134,7 +134,7 @@ export default function AiRecommendationBanner({ patient, openModal }) {
       {/* ── 의사 결정 (closed-loop) ─────────────────────────────── */}
       <div className="mt-2 border-t border-line-soft pt-2">
         {decision ? (
-          <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          <div className="flex flex-wrap items-center gap-2 text-[15px]">
             <span className="rounded-sm px-1.5 py-0.5 font-bold"
               style={decision.action === 'accept'
                 ? { background: '#e6f5ec', color: '#1f7a44' }
@@ -149,14 +149,14 @@ export default function AiRecommendationBanner({ patient, openModal }) {
             </span>
             {decision.reason && <span className="text-ink">사유: {decision.reason}</span>}
             <button type="button" onClick={() => { setDecision(null); setMode('idle') }}
-              className="ml-auto text-[10.5px] text-accent hover:underline">다시 결정</button>
+              className="ml-auto text-[14px] text-accent hover:underline">다시 결정</button>
           </div>
         ) : mode === 'override' ? (
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold text-ink-soft">기각 사유 (필수)</p>
+            <p className="text-[15px] font-semibold text-ink-soft">기각 사유 (필수)</p>
             <textarea value={reason} onChange={(e) => setReason(e.target.value)}
               placeholder="예: T3N1, 전신상태 양호 → 표준 CCRT 유지"
-              className="h-12 w-full resize-none rounded border border-line bg-white p-1.5 text-[12px] outline-none focus:border-accent" />
+              className="h-12 w-full resize-none rounded border border-line bg-white p-1.5 text-[16px] outline-none focus:border-accent" />
             <div className="flex items-center gap-1.5">
               <button type="button" disabled={!reason.trim()} onClick={() => submit('override')}
                 className="emr-btn-primary emr-btn disabled:opacity-50">기각 기록</button>
@@ -165,7 +165,7 @@ export default function AiRecommendationBanner({ patient, openModal }) {
           </div>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10.5px] text-ink-soft">
+            <span className="text-[14px] text-ink-soft">
               본 권고는 의료인의 판단을 보조하며, 최종 결정·책임은 의료인에게 있습니다.
             </span>
             <div className="ml-auto flex items-center gap-1.5">

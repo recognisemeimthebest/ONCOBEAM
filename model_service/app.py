@@ -176,39 +176,56 @@ def load_patient(pid):
     return (dict(row) if row else None), (rad or None)
 
 
-# ── 권고 합성 (CATE 4대비 + XGB위험 → 단일 임상 권고) ─────────────────────────
-def synthesize_recommendation(contrasts, prob, current_arm):
-    """쌍대대비 CATE를 치료군 투표로 집계해 권고 치료군을 도출한다.
+# ── 권고 합성 (임상 가이드라인 + 위험 + 인과모델 근거) ────────────────────────
+def _stage_ord(v):
+    if not v:
+        return None
+    m = re.match(r"\s*(\d+)", str(v))
+    return int(m.group(1)) if m else None
 
-    유의(CI 0 미포함)한 대비에서 우세한 쪽(CATE>0 → b, <0 → a)에 1표.
-    각 군은 2개 대비에 등장 → 최대 2표. 동점/무유의면 '불확실 → 표준 유지'.
+
+def synthesize_recommendation(contrasts, prob, current_arm, t_stage, n_stage):
+    """헤드라인 권고 = 병기(NCCN식 가이드라인) + 5년위험. 인과모델(CATE)은 근거로 첨부.
+
+    이유: 라디오믹스가 데모 placeholder라 Causal Forest CATE가 거의 모든 환자에서
+    동일 방향(RT)으로 수렴 → 권고가 획일적. 임상적으로도 단일 인과모델을 치료결정
+    단독 근거로 쓰지 않는다. 그래서 환자별로 실제 변하는 병기·위험을 1차 근거로 삼고,
+    CATE/SHAP/XGB는 '근거 상세'와 rationale에 보조로 제시한다.
     """
-    votes = {1: 0, 2: 0, 3: 0, 4: 0}
-    rationale = []
+    T, N = _stage_ord(t_stage), _stage_ord(n_stage)
+    stage_txt = f"T{T if T is not None else '?'}N{N if N is not None else '?'}"
+    risk_tier = "고위험" if prob >= 0.66 else ("중등도" if prob >= 0.33 else "저위험")
+    advanced = (T is not None and T >= 3) or (N is not None and N >= 1)
+
+    # 가이드라인(NCCN-lite) 기반 표준 치료군
+    if current_arm in (3, 4):                       # 수술 시행 환자 → 수술 후 보조
+        suggested = 4 if (advanced or risk_tier == "고위험") else 3
+        basis = f"수술 시행 + {stage_txt} → 수술 후 보조요법"
+    elif advanced:                                   # 국소진행 → 동시항암방사선
+        suggested = 2
+        basis = f"국소진행({stage_txt}) → 동시항암방사선(CCRT) 표준"
+    else:                                            # 조기 → 방사선 단독 고려
+        suggested = 1
+        basis = f"조기({stage_txt}) → 방사선 단독(RT) 고려"
+    if risk_tier == "고위험" and suggested == 1:     # 고위험이면 단독요법 상향
+        suggested = 2
+        basis += " · 고위험 → CCRT 상향"
+
+    rationale = [basis, f"5년 재발·사망 위험 {prob*100:.0f}% ({risk_tier}, XGBoost)"]
+    # 인과모델 근거(보조): 유의한 대비 1~2개만
     n_sig = 0
     for c in contrasts:
-        a, b = c["a"], c["b"]
         if c["significant"]:
             n_sig += 1
-            win, lose = (b, a) if c["cate"] > 0 else (a, b)
-            votes[win] += 1
-            rationale.append(
-                f"{ARM_LABELS[win]}가 {ARM_LABELS[lose]} 대비 우세 "
-                f"(CATE {c['cate']:+.2f}, 보정 CI 0 미포함)")
-    top = max(votes, key=votes.get)
-    suggested = top if votes[top] > 0 else None
+            win = c["b"] if c["cate"] > 0 else c["a"]
+            if n_sig <= 2:
+                rationale.append(
+                    f"[Causal Forest] {ARM_LABELS[win]} 우세 (CATE {c['cate']:+.2f}, 유의)")
 
-    risk_tier = "고위험" if prob >= 0.66 else ("중등도" if prob >= 0.33 else "저위험")
-    confidence = "낮음(불확실)" if n_sig == 0 else ("보통" if n_sig <= 2 else "높음")
+    confidence = "높음" if (T is not None and N is not None) else "보통(병기정보 일부 결측)"
+    agrees = current_arm in ARM_LABELS and suggested == current_arm
+    headline = f"AI 권고: {ARM_LABELS[suggested]} · 5년 위험 {prob*100:.0f}%({risk_tier})"
 
-    if suggested is None:
-        headline = "AI 판정 불확실 — 표준 치료 유지 권고"
-        rationale = ["유의한 치료군 우열 차이 없음 (모든 대비 보정 CI가 0 포함)"]
-    else:
-        headline = f"AI 권고: {ARM_LABELS[suggested]} · 5년 위험 {prob*100:.0f}%({risk_tier})"
-
-    agrees = (suggested is not None and current_arm in ARM_LABELS
-              and suggested == current_arm)
     return {
         "suggested_arm": suggested,
         "suggested_arm_label": ARM_LABELS.get(suggested),
@@ -218,10 +235,12 @@ def synthesize_recommendation(contrasts, prob, current_arm):
         "risk_tier": risk_tier,
         "confidence": confidence,
         "n_significant": n_sig,
+        "stage": stage_txt,
         "current_arm": current_arm if current_arm in ARM_LABELS else None,
         "current_arm_label": ARM_LABELS.get(current_arm),
         "agrees_with_plan": agrees,
         "caveats": [
+            "권고는 병기·위험 가이드라인 기반이며 Causal Forest/XGBoost는 보조 근거",
             "라디오믹스 입력은 데모용 자리표시자(무작위) — 영상소견 기여는 미반영",
             "의사결정 보조 도구이며 최종 판단은 의사 평가에 따릅니다(SaMD)",
         ],
@@ -288,8 +307,10 @@ def predict(req: PredictReq):
          for i, (f, v) in enumerate(zip(SHAP_FEATURES, sv))],
         key=lambda d: abs(d["value"]), reverse=True)
 
-    # 4) 권고 합성 (진료화면 배너용)
-    recommendation = synthesize_recommendation(contrasts, prob_event, p.get("treatmethod"))
+    # 4) 권고 합성 (진료화면 배너용) — 병기·위험 가이드라인 + 인과모델 근거
+    recommendation = synthesize_recommendation(
+        contrasts, prob_event, p.get("treatmethod"),
+        p.get("cancerimaging_t"), p.get("cancerimaging_n"))
 
     return {
         "patient_id": req.patient_id,

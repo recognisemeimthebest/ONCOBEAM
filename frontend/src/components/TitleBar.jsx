@@ -33,11 +33,11 @@ export default function TitleBar({ onAdd, patients, results, onPick, onLogout })
     <header className="emr-titlebar flex h-9 items-center gap-3 px-3 text-white">
       {/* 의원명 */}
       <div className="flex items-center gap-2">
-        <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-white/20 text-[11px] font-bold">
+        <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-white/20 text-[15px] font-bold">
           H&amp;N
         </span>
-        <span className="text-[13px] font-bold">세나RT의원</span>
-        <span className="text-[11px] text-white/70">| 두경부암 RT 클리닉</span>
+        <span className="text-[18px] font-bold">세나RT의원</span>
+        <span className="text-[15px] text-white/70">| 두경부암 RT 클리닉</span>
       </div>
 
       {/* 복합 필터 추가 */}
@@ -49,7 +49,7 @@ export default function TitleBar({ onAdd, patients, results, onPick, onLogout })
             setField(e.target.value)
             setDraft('')
           }}
-          className="h-7 shrink-0 rounded bg-white px-1.5 text-[11.5px] font-semibold text-accent outline-none"
+          className="h-7 shrink-0 rounded bg-white px-1.5 text-[16px] font-semibold text-accent outline-none"
           title="검색 기준"
         >
           {FIELD_ORDER.map((f) => (
@@ -67,7 +67,7 @@ export default function TitleBar({ onAdd, patients, results, onPick, onLogout })
               value=""
               onChange={(e) => commitEnum(e.target.value)}
               onFocus={() => setOpen(true)}
-              className="h-7 w-full bg-transparent px-2 text-[12px] text-ink outline-none"
+              className="h-7 w-full bg-transparent px-2 text-[16px] text-ink outline-none"
             >
               <option value="">— {field} 선택 —</option>
               {def.options.map((o) => (
@@ -87,7 +87,7 @@ export default function TitleBar({ onAdd, patients, results, onPick, onLogout })
               onFocus={() => setOpen(true)}
               onBlur={() => setTimeout(() => setOpen(false), 150)}
               placeholder={def.ph}
-              className="h-7 w-full bg-transparent px-2 text-[12px] text-ink outline-none placeholder:text-ink-soft/70"
+              className="h-7 w-full bg-transparent px-2 text-[16px] text-ink outline-none placeholder:text-ink-soft/70"
             />
           )}
         </div>
@@ -98,7 +98,7 @@ export default function TitleBar({ onAdd, patients, results, onPick, onLogout })
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={commitText}
-            className="h-7 shrink-0 rounded bg-white/20 px-2 text-[11.5px] font-semibold text-white hover:bg-white/30"
+            className="h-7 shrink-0 rounded bg-white/20 px-2 text-[16px] font-semibold text-white hover:bg-white/30"
             title="필터 추가"
           >
             + 추가
@@ -108,12 +108,12 @@ export default function TitleBar({ onAdd, patients, results, onPick, onLogout })
         {/* 빠른 선택 드롭다운 (현재 결과) */}
         {open && (
           <div className="absolute left-0 right-0 top-9 z-40 max-h-72 overflow-auto rounded border border-line bg-panel text-ink shadow-lg">
-            <div className="flex items-center justify-between border-b border-line-soft bg-panel-alt px-2 py-1 text-[11px] text-ink-soft">
+            <div className="flex items-center justify-between border-b border-line-soft bg-panel-alt px-2 py-1 text-[15px] text-ink-soft">
               <span>현재 조건 결과 · 클릭하여 선택</span>
               <span className="tabular">{results.length}명</span>
             </div>
             {results.length === 0 && (
-              <div className="px-3 py-4 text-center text-[11px] text-ink-soft">
+              <div className="px-3 py-4 text-center text-[15px] text-ink-soft">
                 조건에 맞는 환자가 없습니다.
               </div>
             )}
@@ -126,11 +126,11 @@ export default function TitleBar({ onAdd, patients, results, onPick, onLogout })
                 className="flex w-full items-center gap-2 border-b border-line-soft px-2 py-1.5 text-left hover:bg-[#eaf2fd]"
               >
                 <span className="w-44 shrink-0 font-semibold tabular text-accent">{p.id}</span>
-                <span className="w-20 shrink-0 text-[11px] tabular text-ink-soft">{p.birth}</span>
-                <span className="w-10 shrink-0 text-[11px] text-ink-soft">
+                <span className="w-20 shrink-0 text-[15px] tabular text-ink-soft">{p.birth}</span>
+                <span className="w-10 shrink-0 text-[15px] text-ink-soft">
                   {p.sex}/{p.age}
                 </span>
-                <span className="flex-1 truncate text-[11px] text-ink-soft">
+                <span className="flex-1 truncate text-[15px] text-ink-soft">
                   {p.location.split(' ')[0]} {p.stage.t}
                   {p.stage.n}
                   {p.stage.m}
@@ -142,18 +142,18 @@ export default function TitleBar({ onAdd, patients, results, onPick, onLogout })
       </div>
 
       {/* 우측 정보 */}
-      <div className="flex items-center gap-3 text-[11px]">
+      <div className="flex items-center gap-3 text-[15px]">
         <span className="hidden tabular md:inline">2026.06.23 (화) 09:14</span>
         <span className="rounded-sm bg-white/15 px-2 py-0.5">
           진료의 <b className="font-semibold">홍은혜</b>
         </span>
-        <div className="flex items-center gap-1.5 text-[13px]">
+        <div className="flex items-center gap-1.5 text-[18px]">
           <button type="button" className="hover:opacity-80" title="알림">🔔</button>
           <button type="button" className="hover:opacity-80" title="설정">⚙️</button>
           <button
             type="button"
             onClick={onLogout}
-            className="rounded-sm bg-white/15 px-2 py-0.5 text-[11px] hover:bg-white/25"
+            className="rounded-sm bg-white/15 px-2 py-0.5 text-[15px] hover:bg-white/25"
             title="로그아웃"
           >
             로그아웃

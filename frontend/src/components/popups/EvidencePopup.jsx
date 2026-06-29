@@ -19,12 +19,12 @@ export default function EvidencePopup({ patient }) {
     return () => { alive = false }
   }, [patient.id])
 
-  if (error) return <div className="emr-panel p-4 text-[12px] text-danger">예측 실패: {error}</div>
-  if (!pred) return <div className="emr-panel p-6 text-center text-[12px] text-ink-soft">실모델 추론 중…</div>
+  if (error) return <div className="emr-panel p-4 text-[16px] text-danger">예측 실패: {error}</div>
+  if (!pred) return <div className="emr-panel p-6 text-center text-[16px] text-ink-soft">실모델 추론 중…</div>
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 px-1 text-[11px] text-ink-soft">
+      <div className="flex items-center gap-2 px-1 text-[15px] text-ink-soft">
         <span className="rounded-sm bg-headbar px-1.5 py-0.5 font-semibold text-headbar-ink">
           영상: {pred.image_case}
         </span>
@@ -58,10 +58,10 @@ function CausalForestPanel({ contrasts }) {
     <div className="emr-panel">
       <div className="emr-head">
         <span>모듈1 · 치료법 쌍별 CATE (Causal Forest)</span>
-        <span className="ml-auto text-[10px] font-normal text-ink-soft">4쌍 · 개별환자 CI</span>
+        <span className="ml-auto text-[14px] font-normal text-ink-soft">4쌍 · 개별환자 CI</span>
       </div>
       <div className="p-2.5">
-        <p className="mb-2 text-[11px] text-ink-soft">
+        <p className="mb-2 text-[15px] text-ink-soft">
           막대 = 조건부 처치효과 · 에러바 = 보정 신뢰구간 · 파랑 = 유의(CI 0 미포함)
         </p>
         <svg viewBox={`0 0 ${W} ${chartH}`} className="w-full" role="img" aria-label="CATE 막대그래프">
@@ -74,7 +74,7 @@ function CausalForestPanel({ contrasts }) {
             const color = c.significant ? BLUE : MUTED
             return (
               <g key={c.key}>
-                <text x={4} y={cy - 6} fontSize="10" fontWeight="600" fill="#283440">
+                <text x={4} y={cy - 6} fontSize="13" fontWeight="600" fill="#283440">
                   {a?.en} → {b?.en} {c.significant && '★'}
                 </text>
                 <rect x={x0} y={cy - 4} width={Math.max(w, 0.5)} height="8" rx="2" fill={color}
@@ -83,17 +83,17 @@ function CausalForestPanel({ contrasts }) {
                 <line x1={x(c.ci_low)} y1={cy - 4} x2={x(c.ci_low)} y2={cy + 4} stroke="#5d6b7c" strokeWidth="1.2" />
                 <line x1={x(c.ci_high)} y1={cy - 4} x2={x(c.ci_high)} y2={cy + 4} stroke="#5d6b7c" strokeWidth="1.2" />
                 <text x={c.cate >= 0 ? x(c.ci_high) + 4 : x(c.ci_low) - 4} y={cy + 3}
-                  fontSize="10" fontWeight="700" textAnchor={c.cate >= 0 ? 'start' : 'end'}
+                  fontSize="13" fontWeight="700" textAnchor={c.cate >= 0 ? 'start' : 'end'}
                   fill={c.significant ? '#1e2733' : '#8b95a3'}>
                   {c.cate > 0 ? '+' : ''}{c.cate.toFixed(3)}
                 </text>
-                <text x={labelW} y={cy + 15} fontSize="8" fill="#7a8593">{c.label}</text>
+                <text x={labelW} y={cy + 15} fontSize="10" fill="#7a8593">{c.label}</text>
               </g>
             )
           })}
-          <text x={labelW} y={chartH - 3} fontSize="9" fill="#7a8593">−{maxAbs} · 앞 우세</text>
-          <text x={centerX} y={chartH - 3} fontSize="9" fill="#7a8593" textAnchor="middle">0</text>
-          <text x={labelW + plotW} y={chartH - 3} fontSize="9" fill="#7a8593" textAnchor="end">+{maxAbs} · 뒤 우세</text>
+          <text x={labelW} y={chartH - 3} fontSize="12" fill="#7a8593">−{maxAbs} · 앞 우세</text>
+          <text x={centerX} y={chartH - 3} fontSize="12" fill="#7a8593" textAnchor="middle">0</text>
+          <text x={labelW + plotW} y={chartH - 3} fontSize="12" fill="#7a8593" textAnchor="end">+{maxAbs} · 뒤 우세</text>
         </svg>
       </div>
     </div>
@@ -113,22 +113,22 @@ function XgbRiskPanel({ prob }) {
     <div className="emr-panel">
       <div className="emr-head">
         <span>모듈2 · 5년 재발·사망 위험 (XGBoost 예후)</span>
-        <span className="ml-auto text-[10px] font-normal text-ink-soft">36피처 · 라디오믹스+임상</span>
+        <span className="ml-auto text-[14px] font-normal text-ink-soft">36피처 · 라디오믹스+임상</span>
       </div>
       <div className="flex flex-col items-center p-3">
         <svg width="150" height="150" viewBox="0 0 120 120">
           <circle cx="60" cy="60" r={r} fill="none" stroke="#e4eaf1" strokeWidth="12" />
           <circle cx="60" cy="60" r={r} fill="none" strokeWidth="12" strokeLinecap="round"
             stroke={tone.ring} strokeDasharray={`${dash} ${c}`} transform="rotate(-90 60 60)" />
-          <text x="60" y="56" textAnchor="middle" fontSize="26" fontWeight="800" fill="#1e2733" className="tabular">
+          <text x="60" y="56" textAnchor="middle" fontSize="34" fontWeight="800" fill="#1e2733" className="tabular">
             {(prob * 100).toFixed(0)}%
           </text>
-          <text x="60" y="74" textAnchor="middle" fontSize="9" fill="#7a8593">5yr event risk</text>
+          <text x="60" y="74" textAnchor="middle" fontSize="12" fill="#7a8593">5yr event risk</text>
         </svg>
-        <span className="mt-2 rounded px-4 py-1 text-[14px] font-bold" style={{ background: tone.bg, color: tone.fg }}>
+        <span className="mt-2 rounded px-4 py-1 text-[19px] font-bold" style={{ background: tone.bg, color: tone.fg }}>
           {tone.label}
         </span>
-        <p className="mt-2 text-center text-[11px] leading-relaxed text-ink-soft">
+        <p className="mt-2 text-center text-[15px] leading-relaxed text-ink-soft">
           P(5년 내 재발 또는 사망) = <b className="tabular text-ink">{prob.toFixed(3)}</b><br />
           XGBoost 이진분류기 출력 확률 (1 = event 발생)
         </p>
@@ -147,10 +147,10 @@ function ShapPanel({ shap }) {
     <div className="emr-panel">
       <div className="emr-head">
         <span>모듈1 · SHAP 변수 기여도 — {shap.contrast_label}</span>
-        <span className="ml-auto text-[10px] font-normal text-ink-soft">base = {shap.base_value.toFixed(3)}</span>
+        <span className="ml-auto text-[14px] font-normal text-ink-soft">base = {shap.base_value.toFixed(3)}</span>
       </div>
       <div className="p-2.5">
-        <p className="mb-2 text-[11px] text-ink-soft">
+        <p className="mb-2 text-[15px] text-ink-soft">
           빨강 = 처치효과↑ 방향 기여 · 파랑 = 처치효과↓ 방향 기여 (RandomForest TreeSHAP)
         </p>
         <div className="space-y-1">
@@ -158,7 +158,7 @@ function ShapPanel({ shap }) {
             const pct = (Math.abs(d.value) / maxAbs) * 100
             const pos = d.value >= 0
             return (
-              <div key={d.feature} className="flex items-center gap-2 text-[11px]">
+              <div key={d.feature} className="flex items-center gap-2 text-[15px]">
                 <span className="w-40 shrink-0 truncate text-right text-ink" title={d.feature}>{d.feature_ko}</span>
                 <div className="relative flex-1">
                   <div className="absolute left-1/2 top-1/2 h-3 -translate-y-1/2 rounded-sm"

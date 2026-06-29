@@ -20,8 +20,8 @@ export default function Modal({ title, subtitle, width = 760, onClose, children,
       >
         {/* 타이틀바 */}
         <div className="emr-titlebar flex items-center gap-2 px-3 py-1.5 text-white">
-          <span className="text-[13px] font-bold">{title}</span>
-          {subtitle && <span className="text-[11px] text-white/80">{subtitle}</span>}
+          <span className="text-[18px] font-bold">{title}</span>
+          {subtitle && <span className="text-[15px] text-white/80">{subtitle}</span>}
           <button
             type="button"
             onClick={onClose}

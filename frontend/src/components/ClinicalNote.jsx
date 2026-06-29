@@ -14,7 +14,7 @@ export default function ClinicalNote({ patient, openModal }) {
       <div className="emr-panel m-1.5 mb-0">
         <div className="emr-head">
           <span>진료 기록 작성</span>
-          <span className="ml-2 text-[10px] font-normal text-ink-soft">
+          <span className="ml-2 text-[14px] font-normal text-ink-soft">
             {patient.history[0]?.date}
           </span>
           <div className="ml-auto flex items-center gap-1">
@@ -22,7 +22,7 @@ export default function ClinicalNote({ patient, openModal }) {
               <button
                 key={i}
                 type="button"
-                className="flex h-5 items-center justify-center rounded-sm border border-line bg-panel px-1.5 text-[10.5px] hover:bg-[#eaf2fd]"
+                className="flex h-5 items-center justify-center rounded-sm border border-line bg-panel px-1.5 text-[14px] hover:bg-[#eaf2fd]"
               >
                 {t}
               </button>
@@ -31,7 +31,7 @@ export default function ClinicalNote({ patient, openModal }) {
         </div>
 
         {/* 보험 / 구분 / 주상병 */}
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-line-soft px-2 py-1.5 text-[11px]">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-line-soft px-2 py-1.5 text-[15px]">
           <Chip>건강보험</Chip>
           <span className="text-ink-soft">주상병</span>
           {patient.diagnoses.map((d) => (
@@ -43,10 +43,10 @@ export default function ClinicalNote({ patient, openModal }) {
 
         {/* 증상 / 소견 */}
         <div className="px-2 py-2">
-          <p className="mb-1 text-[11px] font-semibold text-ink-soft">증상 / 소견 (S/O)</p>
+          <p className="mb-1 text-[15px] font-semibold text-ink-soft">증상 / 소견 (S/O)</p>
           <textarea
             defaultValue={`${patient.location} ${patient.stage.t}${patient.stage.n}${patient.stage.m}, ${plan.ko}(${plan.en}) 진행 중.\nCBCT 반응 평가 및 치료법 적정성 AI 검토 시행.`}
-            className="h-20 w-full resize-none rounded border border-line bg-white p-2 text-[12px] leading-relaxed outline-none focus:border-accent focus:ring-2 focus:ring-[rgba(43,108,176,0.15)]"
+            className="h-20 w-full resize-none rounded border border-line bg-white p-2 text-[16px] leading-relaxed outline-none focus:border-accent focus:ring-2 focus:ring-[rgba(43,108,176,0.15)]"
           />
         </div>
       </div>
@@ -57,7 +57,7 @@ export default function ClinicalNote({ patient, openModal }) {
       <div className="emr-panel m-1.5 mb-0">
         <div className="emr-head">
           <span>처방 (P)</span>
-          <span className="ml-auto text-[10px] font-normal text-accent">행 클릭 → 상세</span>
+          <span className="ml-auto text-[14px] font-normal text-accent">행 클릭 → 상세</span>
         </div>
         <table className="emr-table">
           <thead>

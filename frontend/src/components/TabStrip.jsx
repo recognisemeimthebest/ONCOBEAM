@@ -12,7 +12,7 @@ export default function TabStrip({ tab, onTab }) {
             type="button"
             onClick={() => onTab(t)}
             className={[
-              'relative -mb-px border px-4 py-1.5 text-[12px]',
+              'relative -mb-px border px-4 py-1.5 text-[16px]',
               active
                 ? 'border-line border-b-panel bg-panel font-bold text-accent'
                 : 'border-transparent bg-panel-alt text-ink-soft hover:text-ink',
@@ -23,7 +23,7 @@ export default function TabStrip({ tab, onTab }) {
           </button>
         )
       })}
-      <div className="ml-auto flex items-center gap-2 pb-1 pr-1 text-[11px] text-ink-soft">
+      <div className="ml-auto flex items-center gap-2 pb-1 pr-1 text-[15px] text-ink-soft">
         <span className="emr-badge">대기 3</span>
         <span className="emr-badge" style={{ background: '#e3f3e7', color: '#1f7a44' }}>
           완료 1

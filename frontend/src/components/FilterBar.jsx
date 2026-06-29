@@ -2,15 +2,15 @@
 export default function FilterBar({ filters, onRemove, onClear, count, total }) {
   return (
     <div className="flex min-h-7 flex-wrap items-center gap-1.5 border-b border-line bg-[#eef3fa] px-3 py-1">
-      <span className="text-[11px] font-semibold text-ink-soft">필터</span>
+      <span className="text-[15px] font-semibold text-ink-soft">필터</span>
 
       {filters.length === 0 ? (
-        <span className="text-[11px] text-ink-soft">전체 환자 (조건 없음) — 상단에서 조건을 추가하세요</span>
+        <span className="text-[15px] text-ink-soft">전체 환자 (조건 없음) — 상단에서 조건을 추가하세요</span>
       ) : (
         filters.map((f, i) => (
           <span
             key={`${f.field}-${f.value}`}
-            className="inline-flex items-center gap-1 rounded-sm border border-[#bcd0ea] bg-white px-1.5 py-0.5 text-[11px]"
+            className="inline-flex items-center gap-1 rounded-sm border border-[#bcd0ea] bg-white px-1.5 py-0.5 text-[15px]"
           >
             <span className="font-semibold text-accent">{f.field}</span>
             <span className="text-ink-soft">:</span>
@@ -28,12 +28,12 @@ export default function FilterBar({ filters, onRemove, onClear, count, total }) 
       )}
 
       {filters.length > 1 && (
-        <span className="ml-1 rounded-sm bg-[#dde7f3] px-1.5 py-0.5 text-[10px] font-semibold text-accent">
+        <span className="ml-1 rounded-sm bg-[#dde7f3] px-1.5 py-0.5 text-[14px] font-semibold text-accent">
           AND {filters.length}조건
         </span>
       )}
 
-      <div className="ml-auto flex items-center gap-2 text-[11px]">
+      <div className="ml-auto flex items-center gap-2 text-[15px]">
         <span className="tabular text-ink-soft">
           결과 <b className="text-ink">{count}</b> / {total}명
         </span>
