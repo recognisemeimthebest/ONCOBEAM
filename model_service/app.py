@@ -9,16 +9,18 @@
 임상 피처는 patients 테이블에서 조립한다. 학습 피처정의는 다운로드/HTE/config.json 기준.
 실행: cd model_service && uvicorn app:app --port 8011
 """
+import io
 import math
 import pickle
 import re
 import warnings
+from functools import lru_cache
 from pathlib import Path
 
 import joblib
 import numpy as np
 import shap
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import create_engine, text
@@ -331,6 +333,39 @@ def _sanitize(o):
     return o
 
 
+@app.get("/triage_all")
+def triage_all():
+    """목록 트리아지용 경량 일괄 예측 — xgb 위험 + 가이드라인 권고만(빠름).
+
+    무거운 causalforest effect_interval·SHAP·cohort는 제외 → 20명을 한 호출에 순차 처리.
+    배너/근거팝업은 선택 환자에 한해 /predict(전체)로 처리한다.
+    """
+    out = []
+    with engine.connect() as c:
+        ids = [r[0] for r in c.execute(text(
+            "select patient_id from radiomics_features where source='random_demo' order by patient_id"))]
+    for pid in ids:
+        try:
+            p, rad = load_patient(pid)
+            if p is None or rad is None:
+                continue
+            prob = float(XGB_MODEL.predict_proba(xgb_vector(p, rad))[0, 1])
+            if not math.isfinite(prob):
+                prob = None
+            rec = synthesize_recommendation(
+                [], prob if prob is not None else 0.0, p.get("treatmethod"),
+                p.get("cancerimaging_t"), p.get("cancerimaging_n"))
+            out.append({
+                "patient_id": pid,
+                "risk_tier": rec["risk_tier"], "risk_prob": prob,
+                "suggested": rec["suggested_arm_label"], "suggested_arm": rec["suggested_arm"],
+                "diverges": rec["suggested_arm"] is not None and rec["agrees_with_plan"] is False,
+            })
+        except Exception as e:
+            out.append({"patient_id": pid, "error": str(e)})
+    return _sanitize({"items": out})
+
+
 @app.post("/predict")
 def predict(req: PredictReq):
     try:
@@ -410,6 +445,83 @@ def predict(req: PredictReq):
                  "contrast": "1_vs_2", "contrast_label": PAIR_LABELS["1_vs_2"]},
         "errors": errors,
     })
+
+
+# ── CT 뷰어 (SegRap2023 검증 .mha, 환자별 배정 케이스) ────────────────────────
+CT_DIR = Path(__file__).resolve().parent.parent / "data" / "CT" / "viewer"
+
+
+def _case_for(pid):
+    with engine.connect() as c:
+        return c.execute(text(
+            "select features->>'__image_case' from radiomics_features "
+            "where patient_id=:p and source='random_demo'"), {"p": pid}).scalar()
+
+
+@lru_cache(maxsize=2)
+def _load_volume(case):
+    import SimpleITK as sitk
+    img = sitk.ReadImage(str(CT_DIR / f"{case}.mha"))
+    arr = sitk.GetArrayFromImage(img)          # (z, y, x), HU
+    sx, sy, sz = img.GetSpacing()              # mm (x, y, z)
+    return arr, (float(sx), float(sy), float(sz))
+
+
+@app.get("/ct/{patient_id}/meta")
+def ct_meta(patient_id: str):
+    case = _case_for(patient_id)
+    if not case:
+        raise HTTPException(404, "영상이 배정되지 않은 환자입니다.")
+    if not (CT_DIR / f"{case}.mha").exists():
+        raise HTTPException(404, f"CT 파일이 없습니다: {case}")
+    arr, (sx, sy, sz) = _load_volume(case)
+    z, y, x = arr.shape
+    return {
+        "case": case,
+        "spacing": {"x": sx, "y": sy, "z": sz},
+        "n_slices": {"axial": int(z), "coronal": int(y), "sagittal": int(x)},
+        "default": {"axial": int(z // 2), "coronal": int(y // 2), "sagittal": int(x // 2)},
+    }
+
+
+@app.get("/ct/{patient_id}/slice/{idx}")
+def ct_slice(patient_id: str, idx: int, axis: str = "axial", w: int = 350, l: int = 40):
+    """단면 슬라이스 PNG. axis=axial(횡)/coronal(관상)/sagittal(시상).
+
+    비등방 복셀(슬라이스 두께≠평면해상도)을 보정해 등방 픽셀로 리샘플링한다.
+    """
+    case = _case_for(patient_id)
+    if not case or not (CT_DIR / f"{case}.mha").exists():
+        raise HTTPException(404, "CT 영상을 찾을 수 없습니다.")
+    from PIL import Image
+    vol, (sx, sy, sz) = _load_volume(case)
+    z, y, x = vol.shape
+
+    if axis == "coronal":
+        idx = max(0, min(y - 1, idx)); sl = vol[:, idx, :]; ph, pw = sz, sx; flip = True
+    elif axis == "sagittal":
+        idx = max(0, min(x - 1, idx)); sl = vol[:, :, idx]; ph, pw = sz, sy; flip = True
+    else:
+        idx = max(0, min(z - 1, idx)); sl = vol[idx]; ph, pw = sy, sx; flip = False
+    if flip:
+        sl = sl[::-1]   # 머리(상부)가 위로 오도록
+
+    lo, hi = l - w / 2.0, l + w / 2.0
+    g = np.clip((sl.astype(np.float32) - lo) / max(hi - lo, 1e-3), 0, 1) * 255.0
+    im = Image.fromarray(g.astype(np.uint8), mode="L")
+
+    # 등방 리샘플링(물리 크기 기준) — 원본 해상도 수준 유지(상한 1024) + LANCZOS 고품질
+    base = min(ph, pw)
+    out_w = max(1, round(sl.shape[1] * pw / base))
+    out_h = max(1, round(sl.shape[0] * ph / base))
+    scale = min(1.0, 1024.0 / max(out_w, out_h))
+    out_w, out_h = max(1, round(out_w * scale)), max(1, round(out_h * scale))
+    im = im.resize((out_w, out_h), Image.Resampling.LANCZOS)
+
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return Response(content=buf.getvalue(), media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=3600"})
 
 
 @app.get("/health")

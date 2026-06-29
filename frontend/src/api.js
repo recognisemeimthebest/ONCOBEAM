@@ -3,7 +3,7 @@
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000'
 const MODEL_BASE = import.meta.env.VITE_MODEL_BASE ?? 'http://localhost:8011'
 const TOKEN_KEY = 'cdss_token'
-const TIMEOUT_MS = 12000
+const TIMEOUT_MS = 30000
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY)
 export const setToken = (t) => localStorage.setItem(TOKEN_KEY, t)
@@ -65,5 +65,14 @@ export const fetchLatestDecision = (patientId) =>
 // ── 실모델 서비스 (8011) ─────────────────────────────────────────────────────
 export const fetchActivePatients = () =>
   request(MODEL_BASE, '/active_patients', { label: 'AI 모델 서비스' })
+// 목록 트리아지용 경량 일괄 위험·권고 (20명 한 호출).
+export const fetchTriageAll = () =>
+  request(MODEL_BASE, '/triage_all', { label: 'AI 모델 서비스' })
 export const predictPatient = (patientId) =>
   request(MODEL_BASE, '/predict', { method: 'POST', body: { patient_id: patientId }, label: 'AI 모델 서비스' })
+
+// ── CT 뷰어 ──────────────────────────────────────────────────────────────────
+export const fetchCtMeta = (patientId) =>
+  request(MODEL_BASE, `/ct/${encodeURIComponent(patientId)}/meta`, { label: 'CT 뷰어' })
+export const ctSliceUrl = (patientId, idx, { axis = 'axial', w = 350, l = 40 } = {}) =>
+  `${MODEL_BASE}/ct/${encodeURIComponent(patientId)}/slice/${idx}?axis=${axis}&w=${w}&l=${l}`

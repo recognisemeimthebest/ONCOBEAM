@@ -18,13 +18,17 @@ export default function PatientSummary({ patient, openModal, triage }) {
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-headbar text-[20px]">
             {patient.sex === 'M' ? '👨' : '👩'}
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <span className="text-[20px] font-bold tabular">{patient.id}</span>
               <span className="text-[15px] text-ink-soft tabular">{patient.sex}/{patient.age}</span>
             </div>
             <div className="text-[15px] text-ink-soft tabular">{patient.birth}</div>
           </div>
+          <button type="button" onClick={() => openModal('ct')}
+            className="shrink-0 self-start rounded border border-line bg-panel px-2 py-1 text-[14px] font-semibold text-accent hover:bg-[#eaf2fd]">
+            🩻 CT 보기
+          </button>
         </div>
         {/* 위험·권고 미니 요약 (트리아지 연계) */}
         {triage && (

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchPatients, fetchActivePatients, predictPatient, fetchMe, setAuthExpiredHandler, getToken, clearToken } from './api'
+import { fetchPatients, fetchActivePatients, fetchTriageAll, fetchMe, setAuthExpiredHandler, getToken, clearToken } from './api'
 import { mapPatient } from './lib/mapPatient'
 import { matchAll } from './search'
 import Login from './components/Login'
@@ -12,6 +12,7 @@ import ClinicalNote from './components/ClinicalNote'
 import StatusBar from './components/StatusBar'
 import Modal from './components/Modal'
 import EvidencePopup from './components/popups/EvidencePopup'
+import CtViewer from './components/CtViewer'
 
 export default function App() {
   const [authed, setAuthed] = useState(() => !!getToken())
@@ -61,26 +62,23 @@ export default function App() {
     }
   }, [authed])
 
-  // #5 트리아지 — 활성 환자 전원 권고 prefetch (목록 위험뱃지/정렬용). 환자ID 목록이 바뀔 때만.
-  const pidKey = patients.map((p) => p.id).join(',')
+  // #5 트리아지 — 경량 일괄 엔드포인트로 활성 환자 위험·권고 한 번에 (목록 뱃지/정렬용).
   useEffect(() => {
-    if (loadState !== 'ready' || !patients.length) return
+    if (loadState !== 'ready') return
     let alive = true
-    Promise.allSettled(patients.map((p) =>
-      predictPatient(p.id).then((d) => [p.id, {
-        risk_tier: d.recommendation.risk_tier,
-        risk_prob: d.recommendation.risk_prob,
-        diverges: d.recommendation.suggested_arm != null && d.recommendation.agrees_with_plan === false,
-        suggested: d.recommendation.suggested_arm_label,
-      }])
-    )).then((rs) => {
-      if (!alive) return
+    fetchTriageAll().then((d) => {
+      if (!alive || !d?.items) return
       const m = {}
-      rs.forEach((r) => { if (r.status === 'fulfilled') { const [id, v] = r.value; m[id] = v } })
+      d.items.forEach((it) => {
+        m[it.patient_id] = {
+          risk_tier: it.risk_tier, risk_prob: it.risk_prob,
+          diverges: it.diverges, suggested: it.suggested,
+        }
+      })
       setTriage(m)
-    })
+    }).catch(() => {})
     return () => { alive = false }
-  }, [loadState, pidKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadState])
 
   // #6 권고 수락 → 치료계획에 반영 (오더 연계). DB는 그대로, 표시·트리아지 갱신.
   const adoptPlan = (pid, arm) => {
@@ -180,6 +178,11 @@ export default function App() {
           onClose={closeModal}
         >
           <EvidencePopup patient={patient} />
+        </Modal>
+      )}
+      {modal?.type === 'ct' && patient && (
+        <Modal title="CT 영상 뷰어" subtitle={patient.id} width={900} onClose={closeModal}>
+          <CtViewer patient={patient} />
         </Modal>
       )}
       {modal?.type === 'method' && (
