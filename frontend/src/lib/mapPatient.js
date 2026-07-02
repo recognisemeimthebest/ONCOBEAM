@@ -121,9 +121,9 @@ export function mapPatient(row) {
     histology: row.classification_cancer === 1 ? 'SCC (편평세포암)' : site,
     stage,
     comorbidity: {
-      bp: row.bp === 'Y' ? '고혈압' : '정상',
-      bs: row.bs === 'Y' ? '당뇨' : '정상',
-      smoking: row.sm === 'Y' ? '흡연' : '비흡연',
+      bp: row.bp === 'Y' ? '있음' : '없음',
+      bs: row.bs === 'Y' ? '있음' : '없음',
+      smoking: row.sm === 'Y' ? '현재' : '비흡연',
       familyHistory: row.familyhistory === 'Y' ? '있음' : '없음',
     },
     diagnoses: [{ code: icdFor(site), name: `${site} ${stage.t}${stage.n}${stage.m}`.trim(), main: true }],

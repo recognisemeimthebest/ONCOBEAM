@@ -28,14 +28,9 @@ export default function Login({ onSuccess }) {
         onSubmit={submit}
         className="w-80 rounded-lg bg-bg p-6 shadow-xl"
       >
-        <div className="mb-5 flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded bg-accent text-[16px] font-bold text-white">
-            H&amp;N
-          </span>
-          <div>
-            <div className="text-[20px] font-bold">세나RT의원 EMR</div>
-            <div className="text-[15px] text-ink-soft">두경부암 RT 클리닉 · CDSS</div>
-          </div>
+        <div className="mb-5">
+          <div className="text-[22px] font-bold">ONCOBEAM</div>
+          <div className="text-[15px] text-ink-soft">두경부암 RT 임상의사결정지원(CDSS)</div>
         </div>
 
         <label className="mb-1 block text-[15px] font-semibold text-ink-soft">아이디</label>

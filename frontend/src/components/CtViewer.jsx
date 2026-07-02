@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchCtMeta, ctSliceUrl } from '../api'
+import { fetchCtMeta, ctSliceUrl, ctSegUrl } from '../api'
 
 // CT 뷰어 — 환자 배정 SegRap CT(.mha). 3면(횡/관상/시상) + 윈도우 프리셋.
 const WINDOWS = [
@@ -21,12 +21,13 @@ export default function CtViewer({ patient }) {
   const [idx, setIdx] = useState(0)
   const [win, setWin] = useState(WINDOWS[0])
   const [firstLoad, setFirstLoad] = useState(true)
+  const [seg, setSeg] = useState(true)   // 종양 오버레이 표시
 
   useEffect(() => {
     let alive = true
     setMeta(null); setError(null); setFirstLoad(true)
     fetchCtMeta(patient.id)
-      .then((m) => { if (!alive) return; setMeta(m); setAxis('axial'); setIdx(m.default.axial) })
+      .then((m) => { if (!alive) return; setMeta(m); setAxis('axial'); setIdx(m.default.axial); setSeg(!!m.has_seg) })
       .catch((e) => alive && setError(e.message))
     return () => { alive = false }
   }, [patient.id, reload])
@@ -68,7 +69,7 @@ export default function CtViewer({ patient }) {
             </button>
           ))}
         </span>
-        <span className="ml-auto flex items-center gap-1">
+        <span className="flex items-center gap-1">
           {WINDOWS.map((p) => (
             <button key={p.key} type="button" onClick={() => setWin(p)}
               className={['rounded-sm border px-2 py-0.5 text-[13px]',
@@ -77,21 +78,45 @@ export default function CtViewer({ patient }) {
             </button>
           ))}
         </span>
+        {/* 종양 오버레이 토글 */}
+        <button type="button" disabled={!meta.has_seg} onClick={() => setSeg((s) => !s)}
+          title={meta.has_seg ? '종양(GTVp/GTVnd) 오버레이' : '세그멘테이션 없음'}
+          className={['ml-auto rounded-sm border px-2 py-0.5 text-[13px] font-semibold',
+            !meta.has_seg ? 'border-line text-ink-soft opacity-50'
+              : seg ? 'border-[#d62839] bg-[#fbe6e8] text-[#b3303d]' : 'border-line text-ink-soft'].join(' ')}>
+          🎯 종양 오버레이 {meta.has_seg ? (seg ? 'ON' : 'OFF') : '없음'}
+        </button>
       </div>
 
-      {/* 영상 — 고정 높이 박스 + 단일 img(remount 없음) → 깜빡임 없음 */}
+      {/* 영상 — CT + 종양 마스크 오버레이(정합) */}
       <div className="relative flex h-[58vh] items-center justify-center overflow-hidden rounded bg-black">
         {firstLoad && <span className="absolute text-[14px] text-white/60">로딩…</span>}
-        <img
-          src={ctSliceUrl(patient.id, idx, { axis, w: win.w, l: win.l })}
-          alt={`CT ${axis} ${idx}`}
-          className="max-h-full max-w-full select-none"
-          onLoad={() => setFirstLoad(false)}
-          draggable={false}
-        />
+        <div className="relative inline-flex">
+          <img
+            src={ctSliceUrl(patient.id, idx, { axis, w: win.w, l: win.l })}
+            alt={`CT ${axis} ${idx}`}
+            className="max-h-[56vh] max-w-full select-none"
+            onLoad={() => setFirstLoad(false)}
+            draggable={false}
+          />
+          {seg && meta.has_seg && (
+            <img
+              src={ctSegUrl(patient.id, idx, { axis })}
+              alt="tumor overlay"
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              draggable={false}
+            />
+          )}
+        </div>
         <span className="absolute bottom-1 right-2 text-[12px] text-white/70 tabular">
           {AXES.find((a) => a.key === axis).ko} {idx + 1} / {nSlices} · W{win.w} L{win.l}
         </span>
+        {seg && meta.has_seg && (
+          <span className="absolute bottom-1 left-2 flex items-center gap-2 text-[12px] text-white/85">
+            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: '#d62839' }} />GTVp(원발)</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: '#2b6cb0' }} />GTVnd(림프절)</span>
+          </span>
+        )}
       </div>
 
       {/* 슬라이스 컨트롤 */}
@@ -102,7 +127,7 @@ export default function CtViewer({ patient }) {
         <button type="button" onClick={() => setIdx((i) => Math.min(nSlices - 1, i + 1))} className="emr-btn">▶</button>
         <span className="w-24 text-right text-[14px] tabular text-ink-soft">{idx + 1} / {nSlices}</span>
       </div>
-      <p className="text-[12px] text-ink-soft">↑/↓ 키 또는 슬라이더로 탐색 · 비등방 복셀 보정 표시 · SegRap2023 검증셋(데모) · 진단용 아님</p>
+      <p className="text-[12px] text-ink-soft">↑/↓ 키 또는 슬라이더로 탐색 · 종양 오버레이 = STU-Net GTVp/GTVnd 자동 세그멘테이션 · SegRap2023 검증셋(데모) · 진단용 아님</p>
     </div>
   )
 }

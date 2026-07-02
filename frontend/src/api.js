@@ -80,3 +80,6 @@ export const fetchCtMeta = (patientId) =>
   request(MODEL_BASE, `/ct/${encodeURIComponent(patientId)}/meta`, { label: 'CT 뷰어' })
 export const ctSliceUrl = (patientId, idx, { axis = 'axial', w = 350, l = 40 } = {}) =>
   `${MODEL_BASE}/ct/${encodeURIComponent(patientId)}/slice/${idx}?axis=${axis}&w=${w}&l=${l}`
+// 종양 마스크(GTVp/GTVnd) 오버레이 PNG
+export const ctSegUrl = (patientId, idx, { axis = 'axial' } = {}) =>
+  `${MODEL_BASE}/ct/${encodeURIComponent(patientId)}/seg/${idx}?axis=${axis}`

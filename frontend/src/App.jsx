@@ -11,7 +11,6 @@ import PatientSummary from './components/PatientSummary'
 import ClinicalNote from './components/ClinicalNote'
 import StatusBar from './components/StatusBar'
 import Modal from './components/Modal'
-import EvidencePopup from './components/popups/EvidencePopup'
 import CtViewer from './components/CtViewer'
 import AuditLogView from './components/AuditLogView'
 
@@ -170,17 +169,6 @@ export default function App() {
 
       {patient && <StatusBar patient={patient} count={results.length} />}
 
-      {/* 팝업 — AI 근거 상세 (모듈1 HTE + 모듈2 XGBoost 통합) */}
-      {modal?.type === 'evidence' && patient && (
-        <Modal
-          title="AI 근거 상세 — 치료법 비교(HTE) + 예후예측(XGBoost)"
-          subtitle={`${patient.name} · ${patient.id}`}
-          width={880}
-          onClose={closeModal}
-        >
-          <EvidencePopup patient={patient} />
-        </Modal>
-      )}
       {modal?.type === 'ct' && patient && (
         <Modal title="CT 영상 뷰어" subtitle={`${patient.name} · ${patient.id}`} width={900} onClose={closeModal}>
           <CtViewer patient={patient} />

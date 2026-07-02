@@ -449,6 +449,7 @@ def predict(req: PredictReq):
 
 # ── CT 뷰어 (SegRap2023 검증 .mha, 환자별 배정 케이스) ────────────────────────
 CT_DIR = Path(__file__).resolve().parent.parent / "data" / "CT" / "viewer"
+CT_SEG_DIR = Path(__file__).resolve().parent.parent / "data" / "CT" / "seg"
 
 
 def _case_for(pid):
@@ -467,6 +468,38 @@ def _load_volume(case):
     return arr, (float(sx), float(sy), float(sz))
 
 
+@lru_cache(maxsize=2)
+def _load_mask(case):
+    """GTVp/GTVnd 세그멘테이션 마스크 (nnU-Net 출력, CT와 동일 기하). 없으면 None."""
+    p = CT_SEG_DIR / f"{case}.nii.gz"
+    if not p.exists():
+        return None
+    import SimpleITK as sitk
+    return sitk.GetArrayFromImage(sitk.ReadImage(str(p)))   # (z, y, x), {0,1,2}
+
+
+def _plane(arr, axis, idx, sx, sy, sz):
+    """축별 2D 슬라이스 + 표시 물리간격(ph,pw) + 상하반전 여부."""
+    z, y, x = arr.shape
+    if axis == "coronal":
+        idx = max(0, min(y - 1, idx)); sl = arr[:, idx, :]; ph, pw, flip = sz, sx, True
+    elif axis == "sagittal":
+        idx = max(0, min(x - 1, idx)); sl = arr[:, :, idx]; ph, pw, flip = sz, sy, True
+    else:
+        idx = max(0, min(z - 1, idx)); sl = arr[idx]; ph, pw, flip = sy, sx, False
+    if flip:
+        sl = sl[::-1]
+    return sl, ph, pw
+
+
+def _outdims(sl, ph, pw):
+    base = min(ph, pw)
+    ow = max(1, round(sl.shape[1] * pw / base))
+    oh = max(1, round(sl.shape[0] * ph / base))
+    s = min(1.0, 1024.0 / max(ow, oh))
+    return max(1, round(ow * s)), max(1, round(oh * s))
+
+
 @app.get("/ct/{patient_id}/meta")
 def ct_meta(patient_id: str):
     case = _case_for(patient_id)
@@ -481,6 +514,7 @@ def ct_meta(patient_id: str):
         "spacing": {"x": sx, "y": sy, "z": sz},
         "n_slices": {"axial": int(z), "coronal": int(y), "sagittal": int(x)},
         "default": {"axial": int(z // 2), "coronal": int(y // 2), "sagittal": int(x // 2)},
+        "has_seg": (CT_SEG_DIR / f"{case}.nii.gz").exists(),
     }
 
 
@@ -518,6 +552,31 @@ def ct_slice(patient_id: str, idx: int, axis: str = "axial", w: int = 350, l: in
     out_w, out_h = max(1, round(out_w * scale)), max(1, round(out_h * scale))
     im = im.resize((out_w, out_h), Image.Resampling.LANCZOS)
 
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return Response(content=buf.getvalue(), media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/ct/{patient_id}/seg/{idx}")
+def ct_seg_slice(patient_id: str, idx: int, axis: str = "axial"):
+    """종양 마스크 오버레이 PNG(RGBA, 투명). GTVp=빨강, GTVnd=파랑. CT 슬라이스와 정합."""
+    case = _case_for(patient_id)
+    if not case:
+        raise HTTPException(404, "환자를 찾을 수 없습니다.")
+    mask = _load_mask(case)
+    if mask is None:
+        raise HTTPException(404, "세그멘테이션 마스크가 없습니다.")
+    from PIL import Image
+    # CT와 동일 spacing 사용 (동일 기하)
+    _, (sx, sy, sz) = _load_volume(case)
+    sl, ph, pw = _plane(mask, axis, idx, sx, sy, sz)
+    ow, oh = _outdims(sl, ph, pw)
+    h, w = sl.shape
+    rgba = np.zeros((h, w, 4), dtype=np.uint8)
+    rgba[sl == 1] = [220, 40, 57, 130]     # GTVp (원발) 빨강
+    rgba[sl == 2] = [43, 108, 176, 130]    # GTVnd (림프절) 파랑
+    im = Image.fromarray(rgba, mode="RGBA").resize((ow, oh), Image.NEAREST)
     buf = io.BytesIO()
     im.save(buf, format="PNG")
     return Response(content=buf.getvalue(), media_type="image/png",

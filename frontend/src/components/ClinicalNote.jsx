@@ -1,18 +1,43 @@
+import { useEffect, useState } from 'react'
+import { predictPatient } from '../api'
 import { treatmentByCode } from '../data/mockData'
 import AiRecommendationBanner from './AiRecommendationBanner'
 
-// 중앙-우 진료기록 작성 — AI 권고 배너 / 보험·주상병 / 증상·소견 / 처방 / 완료
+// 중앙-우 진료기록 작성 — AI 의사결정 지원(권고 배너 + 근거 인라인) / 진료기록 / 처방
 export default function ClinicalNote({ patient, openModal, onAdoptPlan }) {
   const plan = treatmentByCode(patient.plan.treatment)
+  const [pred, setPred] = useState(null)
+  const [predErr, setPredErr] = useState(null)
+  const [reload, setReload] = useState(0)
+
+  useEffect(() => {
+    let alive = true
+    setPred(null); setPredErr(null)
+    predictPatient(patient.id).then((d) => alive && setPred(d)).catch((e) => alive && setPredErr(e.message))
+    return () => { alive = false }
+  }, [patient.id, reload])
 
   return (
     <section className="flex min-w-0 flex-1 flex-col overflow-auto bg-bg">
-      {/* AI 권고 배너 — 상시 노출 (point-of-care) */}
-      <AiRecommendationBanner
-        patient={patient}
-        openModal={openModal}
-        onAdopt={(arm) => onAdoptPlan?.(patient.id, arm)}
-      />
+      {/* AI 의사결정 지원 — 권고 배너 + 근거(모듈1·2) 인라인 (한 번 추론해 공유) */}
+      {predErr ? (
+        <div className="emr-panel m-1.5 mb-0 border-l-4 border-l-[#b3303d] p-3">
+          <p className="text-[15px] font-semibold text-danger">AI 권고를 불러오지 못했습니다</p>
+          <p className="mt-1 text-[13px] text-ink-soft">{predErr}</p>
+          <button type="button" onClick={() => setReload((n) => n + 1)} className="emr-btn-primary emr-btn mt-2">재시도</button>
+        </div>
+      ) : !pred ? (
+        <div className="emr-panel m-1.5 mb-0 min-h-[140px] animate-pulse p-3 text-[14px] text-ink-soft">⏳ AI 권고·근거 합성 중…</div>
+      ) : (
+        <>
+          <AiRecommendationBanner
+            patient={patient}
+            pred={pred}
+            openModal={openModal}
+            onAdopt={(arm) => onAdoptPlan?.(patient.id, arm)}
+          />
+        </>
+      )}
 
       {/* 작성 헤더 */}
       <div className="emr-panel m-1.5 mb-0">
@@ -43,8 +68,6 @@ export default function ClinicalNote({ patient, openModal, onAdoptPlan }) {
           />
         </div>
       </div>
-
-      {/* AI 의사결정 지원은 상단 권고 배너로 통합 — 상세는 배너의 '근거 상세 ▸' */}
 
       {/* 처방 (P) */}
       <div className="emr-panel m-1.5 mb-0">

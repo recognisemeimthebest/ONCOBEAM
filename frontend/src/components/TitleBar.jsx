@@ -39,9 +39,6 @@ export default function TitleBar({ onAdd, patients, results, onPick, onLogout, d
     <header className="emr-titlebar flex h-9 items-center gap-3 px-3 text-white">
       {/* 의원명 */}
       <div className="flex items-center gap-2">
-        <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-white/20 text-[15px] font-bold">
-          H&amp;N
-        </span>
         <span className="text-[18px] font-bold">ONCOBEAM</span>
         <span className="text-[15px] text-white/70">| 두경부암 RT 임상의사결정지원(CDSS)</span>
       </div>

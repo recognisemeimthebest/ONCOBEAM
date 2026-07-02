@@ -28,3 +28,10 @@ frontend/dist/
 # OS / 에디터 / 오피스 잠금
 .DS_Store
 .~lock.*#
+
+# 스크린샷(임시)
+스크린샷*.png
+
+# 세그멘테이션 모델(대용량 체크포인트)
+seg_model/
+checkpoint_final.pth
